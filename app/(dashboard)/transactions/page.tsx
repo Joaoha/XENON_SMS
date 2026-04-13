@@ -62,11 +62,20 @@ export default function TransactionsPage() {
     if (filters.to) params.set("to", filters.to)
     params.set("page", String(page))
     params.set("limit", String(limit))
-    const res = await fetch(`/api/transactions?${params}`)
-    const data = await res.json()
-    setTransactions(data.transactions)
-    setTotal(data.total)
-    setLoading(false)
+    try {
+      const res = await fetch(`/api/transactions?${params}`)
+      if (!res.ok) {
+        setLoading(false)
+        return
+      }
+      const data = await res.json()
+      setTransactions(data.transactions)
+      setTotal(data.total)
+    } catch {
+      // network error or malformed response
+    } finally {
+      setLoading(false)
+    }
   }, [filters, page])
 
   useEffect(() => {
