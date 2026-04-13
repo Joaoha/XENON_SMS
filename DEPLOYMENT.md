@@ -6,58 +6,75 @@ Version: **1.0.0**
 
 ## Prerequisites
 
+For Docker deployments, Docker Engine 24+ is the only requirement — no local Node.js or PostgreSQL needed.
+
+For bare-metal deployments:
+
 | Requirement | Version |
 |-------------|---------|
 | Node.js     | 18+     |
 | PostgreSQL  | 14+     |
 | npm         | 9+      |
 
-For Docker deployments, Docker Engine 24+ and Docker Compose v2 are sufficient — no local Node.js or PostgreSQL required.
-
 ---
 
 ## Environment Variables
 
-| Variable            | Required    | Description                                                                                   |
-|---------------------|-------------|-----------------------------------------------------------------------------------------------|
-| `DATABASE_URL`      | Yes         | PostgreSQL connection string, e.g. `postgresql://user:pass@host:5432/xenon_sms`               |
+| Variable            | Required    | Description                                                                                     |
+|---------------------|-------------|-------------------------------------------------------------------------------------------------|
+| `DATABASE_URL`      | Yes         | PostgreSQL connection string, e.g. `postgresql://user:pass@host:5432/xenon_sms`                 |
 | `AUTH_SECRET`       | Yes         | Random secret for JWT signing — minimum 32 characters. Generate with `openssl rand -base64 32`. |
-| `PORT`              | No          | HTTP port (default: `3000`)                                                                   |
-| `POSTGRES_PASSWORD` | Docker only | Password for the bundled Postgres container (docker-compose)                                  |
+| `PORT`              | No          | HTTP port (default: `3000`)                                                                     |
+| `POSTGRES_PASSWORD` | Docker Compose only | Password for the bundled Postgres container                                             |
 
-Copy `.env.example` to `.env.local` and fill in your values before building or running the app.
+Copy `.env.example` to `.env` and fill in your values:
+
+```bash
+cp .env.example .env
+# then edit .env
+```
 
 ---
 
-## Option A: Docker Compose (Recommended)
+## Option A: Single Docker Image (Recommended)
 
-The simplest path to production. Spins up a Postgres database and the app together.
+Build one image, pass one env file, run. You supply the PostgreSQL database; the container handles everything else including running migrations on startup.
 
-### 1. Configure secrets
+### 1. Set up your environment file
 
 ```bash
-cp .env.example .env.local
+cp .env.example .env
 ```
 
-Edit `.env.local`:
+Edit `.env`:
 
 ```env
-AUTH_SECRET="$(openssl rand -base64 32)"
-POSTGRES_PASSWORD="a-strong-db-password"
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/xenon_sms"
+AUTH_SECRET="your-secret"   # openssl rand -base64 32
 ```
 
-### 2. Build and start
+### 2. Build the image
 
 ```bash
-docker compose --env-file .env.local up -d --build
+docker build -t xenon-sms:1.0.0 .
 ```
 
-The app will:
-1. Wait for Postgres to be healthy.
-2. Run `prisma migrate deploy` to apply all migrations.
-3. Start the Next.js server on port 3000.
+### 3. Run
 
-### 3. Seed the initial admin user
+```bash
+docker run -d \
+  --name xenon-sms \
+  --env-file .env \
+  -p 3000:3000 \
+  --restart unless-stopped \
+  xenon-sms:1.0.0
+```
+
+The container will:
+1. Run `prisma migrate deploy` (safe to run on every start — already-applied migrations are skipped).
+2. Start the Next.js server on port 3000.
+
+### 4. Seed the initial admin user
 
 ```bash
 curl -X POST http://localhost:3000/api/seed \
@@ -67,43 +84,61 @@ curl -X POST http://localhost:3000/api/seed \
 
 > **Important:** Change the admin password after first login — Admin → Users.
 
-### 4. Verify
-
-Open http://localhost:3000 and log in with the admin credentials.
-
-### Stopping and restarting
+### Updating to a new version
 
 ```bash
-docker compose down          # stop (data preserved in volume)
+docker build -t xenon-sms:NEW_VERSION .
+docker stop xenon-sms && docker rm xenon-sms
+docker run -d --name xenon-sms --env-file .env -p 3000:3000 --restart unless-stopped xenon-sms:NEW_VERSION
+```
+
+Migrations run automatically on startup.
+
+---
+
+## Option B: Docker Compose (includes bundled Postgres)
+
+Use this if you don't have an external PostgreSQL. Spins up Postgres 16 + the app together.
+
+### 1. Set up your environment file
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set at minimum:
+
+```env
+AUTH_SECRET="your-secret"          # openssl rand -base64 32
+POSTGRES_PASSWORD="a-strong-password"
+```
+
+Docker Compose reads `.env` from the current directory automatically — no extra flags needed.
+
+### 2. Build and start
+
+```bash
+docker compose up -d --build
+```
+
+The app will wait for Postgres to be healthy, then run migrations, then start.
+
+### 3. Seed the initial admin user
+
+```bash
+curl -X POST http://localhost:3000/api/seed \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "changeme"}'
+```
+
+### Managing the stack
+
+```bash
+docker compose down          # stop (database volume preserved)
 docker compose down -v       # stop and wipe the database
 docker compose up -d         # restart without rebuilding
 docker compose up -d --build # rebuild and restart
 ```
-
----
-
-## Option B: Docker (standalone container)
-
-Use this when you supply your own external PostgreSQL instance.
-
-### 1. Build the image
-
-```bash
-docker build -t xenon-sms:1.0.0 .
-```
-
-### 2. Run
-
-```bash
-docker run -d \
-  --name xenon-sms \
-  -p 3000:3000 \
-  -e DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/xenon_sms" \
-  -e AUTH_SECRET="$(openssl rand -base64 32)" \
-  xenon-sms:1.0.0
-```
-
-The container runs `prisma migrate deploy` on startup before launching the server.
 
 ---
 
@@ -118,46 +153,33 @@ npm ci --omit=dev
 ### 2. Configure environment
 
 ```bash
-cp .env.example .env.local
-# Edit .env.local with your DATABASE_URL and AUTH_SECRET
+cp .env.example .env
+# Edit .env with your DATABASE_URL and AUTH_SECRET
 ```
 
-### 3. Generate Prisma client
+### 3. Generate Prisma client and run migrations
 
 ```bash
 npx prisma generate
-```
-
-### 4. Run database migrations
-
-```bash
 npx prisma migrate deploy
 ```
 
-### 5. Build for production
+### 4. Build and start
 
 ```bash
 npm run build
-```
-
-### 6. Start the server
-
-```bash
 npm run start
 ```
 
-Or, with a process manager (recommended):
+Or with a process manager:
 
 ```bash
 npm install -g pm2
 pm2 start npm --name xenon-sms -- start
-pm2 save
-pm2 startup
+pm2 save && pm2 startup
 ```
 
 ### Reverse proxy (nginx)
-
-Run the app behind nginx for SSL termination:
 
 ```nginx
 server {
@@ -182,15 +204,13 @@ server {
 
 ## Database Migrations
 
-When deploying a new version that includes schema changes:
+Migrations are tracked in `prisma/migrations/`. To apply pending migrations:
 
 ```bash
 npx prisma migrate deploy
 ```
 
-This applies any pending migrations without interactive prompts. It is safe to run on every deployment — already-applied migrations are skipped.
-
-For Docker Compose, migrations run automatically on container startup.
+Safe to run on every deployment — already-applied migrations are skipped. Docker containers run this automatically on startup.
 
 ---
 
@@ -205,25 +225,20 @@ npm install
 ### 2. Configure environment
 
 ```bash
-cp .env.example .env.local
-# Edit .env.local with a local PostgreSQL connection string and a generated AUTH_SECRET
+cp .env.example .env
+# Edit .env with a local PostgreSQL connection string and a generated AUTH_SECRET
 ```
 
-### 3. Run migrations
+### 3. Run migrations and start
 
 ```bash
 npx prisma migrate dev
-```
-
-### 4. Start the dev server
-
-```bash
 npm run dev
 ```
 
 App runs at http://localhost:3000.
 
-### 5. Run tests
+### Run tests
 
 ```bash
 npm test
@@ -233,7 +248,7 @@ npm test
 
 ## Post-Deploy Checklist
 
-- [ ] `prisma migrate deploy` completed without errors
+- [ ] Migrations applied without errors
 - [ ] Seeded initial admin: `POST /api/seed`
 - [ ] Logged in and changed the admin password (Admin → Users)
 - [ ] Created stock items (Admin → Stock Items)
@@ -246,14 +261,14 @@ npm test
 
 ## Troubleshooting
 
-**`prisma migrate deploy` fails with "connection refused"**
-Ensure the database is running and `DATABASE_URL` is correct. For Docker Compose, the `db` service health check must pass before `app` starts.
+**"connection refused" on startup**
+Ensure the database is running and `DATABASE_URL` is correct. For Docker Compose, the `db` health check must pass before `app` starts.
 
 **`AUTH_SECRET` error on startup**
 The secret must be at least 32 characters. Generate one with `openssl rand -base64 32`.
 
 **Build fails with TypeScript errors**
-Run `npx tsc --noEmit` to see all errors. Ensure `node_modules` is fully installed with `npm ci`.
+Ensure `node_modules` is fully installed (`npm ci`) and Prisma client is generated (`npx prisma generate`).
 
-**Docker image cannot connect to external database**
-If using `--network host` or bridged networking, ensure the container can reach the database host. For Docker Compose, the service name `db` is the hostname for the bundled Postgres.
+**Container can't reach external database**
+Ensure the database host is reachable from inside the container. Use the host machine's IP or a Docker network alias — `localhost` inside the container refers to the container itself, not the host.

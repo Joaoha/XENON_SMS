@@ -1,10 +1,18 @@
+# Docker Compose — bundles Postgres 16 + the app.
+# Reads .env from the current directory automatically.
+# Required in .env: AUTH_SECRET, POSTGRES_PASSWORD
+#
+# Quick start:
+#   cp .env.example .env   # then edit .env
+#   docker compose up -d --build
+
 services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: xenon
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: xenon_sms
     volumes:
       - db_data:/var/lib/postgresql/data
@@ -20,7 +28,7 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     environment:
-      DATABASE_URL: "postgresql://xenon:${POSTGRES_PASSWORD:-changeme}@db:5432/xenon_sms"
+      DATABASE_URL: "postgresql://xenon:${POSTGRES_PASSWORD}@db:5432/xenon_sms"
       AUTH_SECRET: "${AUTH_SECRET}"
       NODE_ENV: production
     depends_on:

@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# XENON Stock Management System
 
-## Getting Started
+Internal web application for tracking stock receipt, stock handout, picker identity, and destination (Data Hall → Row → Rack).
 
-First, run the development server:
+**Version:** 1.0.0
+
+---
+
+## Quick Start — Docker
+
+The fastest way to run XENON SMS is a single Docker container connected to your PostgreSQL database.
+
+### 1. Create your environment file
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Edit `.env` with your values:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/xenon_sms"
+AUTH_SECRET="your-secret-here"   # openssl rand -base64 32
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 2. Build the image
 
-## Learn More
+```bash
+docker build -t xenon-sms:1.0.0 .
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Run
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+docker run -d \
+  --name xenon-sms \
+  --env-file .env \
+  -p 3000:3000 \
+  xenon-sms:1.0.0
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+That's it. The container automatically runs database migrations on startup, then serves the app at **http://localhost:3000**.
 
-## Deploy on Vercel
+### 4. Create the first admin user
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+curl -X POST http://localhost:3000/api/seed \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "changeme"}'
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+> Change the admin password after first login — **Admin → Users**.
+
+---
+
+## Don't have PostgreSQL?
+
+Use `docker-compose.yml` to spin up a bundled Postgres database alongside the app:
+
+```bash
+# Add POSTGRES_PASSWORD to your .env first
+echo 'POSTGRES_PASSWORD=changeme' >> .env
+
+docker compose up -d --build
+```
+
+Docker Compose automatically reads `.env` from the current directory — no extra flags needed.
+
+---
+
+## Features
+
+- **User auth** — Secure login, role-based access (admin / operator)
+- **Stock items** — SKU-based item master with units
+- **Destinations** — Data Hall → Row → Rack hierarchy
+- **Receive stock** — Record incoming stock with quantity, notes, and reference
+- **Hand out stock** — Record stock handout with picker identity and destination
+- **Stock balances** — Live stock-on-hand view with search
+- **Transaction history** — Full audit trail, soft-delete with admin override
+- **Reports** — Stock on hand, movements by date/person/destination, CSV export
+
+---
+
+## Documentation
+
+- [DEPLOYMENT.md](./DEPLOYMENT.md) — Full deployment guide (Docker, bare metal, local dev)
+- [CHANGELOG.md](./CHANGELOG.md) — Release history
