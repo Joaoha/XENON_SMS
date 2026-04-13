@@ -1,0 +1,102 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  admin
+  operator
+}
+
+enum TransactionType {
+  RECEIVE
+  HANDOUT
+}
+
+model User {
+  id                  String        @id @default(cuid())
+  username            String        @unique
+  passwordHash        String
+  role                Role          @default(operator)
+  isActive            Boolean       @default(true)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  transactions        Transaction[]
+  deletedTransactions Transaction[] @relation("DeletedTransactions")
+}
+
+model StockItem {
+  id           String        @id @default(cuid())
+  sku          String        @unique
+  name         String
+  description  String?
+  unit         String        @default("units")
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  transactions Transaction[]
+}
+
+model DataHall {
+  id           String        @id @default(cuid())
+  name         String
+  code         String        @unique
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  rows         Row[]
+  transactions Transaction[]
+}
+
+model Row {
+  id           String        @id @default(cuid())
+  dataHallId   String
+  name         String
+  code         String
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  dataHall     DataHall      @relation(fields: [dataHallId], references: [id])
+  racks        Rack[]
+  transactions Transaction[]
+
+  @@unique([dataHallId, code])
+}
+
+model Rack {
+  id           String        @id @default(cuid())
+  rowId        String
+  name         String
+  code         String
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  row          Row           @relation(fields: [rowId], references: [id])
+  transactions Transaction[]
+
+  @@unique([rowId, code])
+}
+
+model Transaction {
+  id          String          @id @default(cuid())
+  type        TransactionType
+  stockItemId String
+  quantity    Int
+  userId      String
+  pickedBy    String?
+  dataHallId  String?
+  rowId       String?
+  rackId      String?
+  notes       String?
+  reference   String?
+  createdAt   DateTime        @default(now())
+  deletedAt   DateTime?
+  deletedBy   String?
+
+  stockItem     StockItem @relation(fields: [stockItemId], references: [id])
+  user          User      @relation(fields: [userId], references: [id])
+  dataHall      DataHall? @relation(fields: [dataHallId], references: [id])
+  row           Row?      @relation(fields: [rowId], references: [id])
+  rack          Rack?     @relation(fields: [rackId], references: [id])
+  deletedByUser User?     @relation("DeletedTransactions", fields: [deletedBy], references: [id])
+}
