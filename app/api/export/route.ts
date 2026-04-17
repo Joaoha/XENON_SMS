@@ -32,8 +32,8 @@ export async function GET(req: Request) {
       stockItem: { select: { sku: true, name: true, unit: true } },
       user: { select: { username: true } },
       dataHall: { select: { code: true, name: true } },
-      row: { select: { code: true, name: true } },
-      rack: { select: { code: true, name: true } },
+      row: { select: { name: true } },
+      rack: { select: { name: true } },
     },
   })
 
@@ -63,8 +63,8 @@ export async function GET(req: Request) {
     t.user.username,
     t.pickedBy || "",
     t.dataHall?.code || "",
-    t.row?.code || "",
-    t.rack?.code || "",
+    t.row?.name || "",
+    t.rack?.name || "",
     t.reference || "",
     t.notes || "",
   ])

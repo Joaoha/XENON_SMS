@@ -11,14 +11,12 @@ interface DataHall {
 
 interface Row {
   id: string
-  code: string
   name: string
   racks: Rack[]
 }
 
 interface Rack {
   id: string
-  code: string
   name: string
 }
 
@@ -26,8 +24,8 @@ export default function DestinationsPage() {
   const [halls, setHalls] = useState<DataHall[]>([])
   const [loading, setLoading] = useState(true)
   const [hallForm, setHallForm] = useState({ name: "", code: "" })
-  const [rowForm, setRowForm] = useState({ name: "", code: "", dataHallId: "" })
-  const [rackForm, setRackForm] = useState({ name: "", code: "", rowId: "", dataHallId: "" })
+  const [rowForm, setRowForm] = useState({ name: "", dataHallId: "" })
+  const [rackForm, setRackForm] = useState({ name: "", rowId: "", dataHallId: "" })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState("")
 
@@ -60,37 +58,73 @@ export default function DestinationsPage() {
   }
 
   async function addRow() {
-    if (!rowForm.name || !rowForm.code || !rowForm.dataHallId) return
+    if (!rowForm.name || !rowForm.dataHallId) return
     setSaving(true)
     setError("")
     const res = await fetch(`/api/data-halls/${rowForm.dataHallId}/rows`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: rowForm.name, code: rowForm.code }),
+      body: JSON.stringify({ name: rowForm.name }),
     })
     setSaving(false)
     if (!res.ok) {
       setError((await res.json()).error || "Failed")
     } else {
-      setRowForm((f) => ({ ...f, name: "", code: "" }))
+      setRowForm((f) => ({ ...f, name: "" }))
       loadHalls()
     }
   }
 
   async function addRack() {
-    if (!rackForm.name || !rackForm.code || !rackForm.rowId) return
+    if (!rackForm.name || !rackForm.rowId) return
     setSaving(true)
     setError("")
     const res = await fetch(`/api/data-halls/${rackForm.dataHallId}/rows/${rackForm.rowId}/racks`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: rackForm.name, code: rackForm.code }),
+      body: JSON.stringify({ name: rackForm.name }),
     })
     setSaving(false)
     if (!res.ok) {
       setError((await res.json()).error || "Failed")
     } else {
-      setRackForm((f) => ({ ...f, name: "", code: "" }))
+      setRackForm((f) => ({ ...f, name: "" }))
+      loadHalls()
+    }
+  }
+
+  async function removeHall(id: string, name: string) {
+    if (!confirm(`Remove data hall "${name}"?`)) return
+    setError("")
+    const res = await fetch(`/api/data-halls/${id}`, { method: "DELETE" })
+    if (!res.ok) {
+      const err = await res.json().catch(() => null)
+      setError(err?.error || "Failed to remove")
+    } else {
+      loadHalls()
+    }
+  }
+
+  async function removeRow(hallId: string, rowId: string, name: string) {
+    if (!confirm(`Remove row "${name}"?`)) return
+    setError("")
+    const res = await fetch(`/api/data-halls/${hallId}/rows/${rowId}`, { method: "DELETE" })
+    if (!res.ok) {
+      const err = await res.json().catch(() => null)
+      setError(err?.error || "Failed to remove")
+    } else {
+      loadHalls()
+    }
+  }
+
+  async function removeRack(hallId: string, rowId: string, rackId: string, name: string) {
+    if (!confirm(`Remove rack "${name}"?`)) return
+    setError("")
+    const res = await fetch(`/api/data-halls/${hallId}/rows/${rowId}/racks/${rackId}`, { method: "DELETE" })
+    if (!res.ok) {
+      const err = await res.json().catch(() => null)
+      setError(err?.error || "Failed to remove")
+    } else {
       loadHalls()
     }
   }
@@ -99,6 +133,7 @@ export default function DestinationsPage() {
 
   const inputCls = "mt-1 w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1.5 text-sm"
   const inputClsDisabled = `${inputCls} disabled:bg-gray-50 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-500`
+  const removeBtnCls = "ml-2 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 text-xs"
 
   return (
     <div className="space-y-8">
@@ -156,15 +191,6 @@ export default function DestinationsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400">Code</label>
-            <input
-              value={rowForm.code}
-              onChange={(e) => setRowForm((f) => ({ ...f, code: e.target.value }))}
-              placeholder="A"
-              className={inputCls}
-            />
-          </div>
-          <div>
             <label className="block text-xs text-gray-500 dark:text-gray-400">Name</label>
             <input
               value={rowForm.name}
@@ -175,7 +201,7 @@ export default function DestinationsPage() {
           </div>
           <button
             onClick={addRow}
-            disabled={saving || !rowForm.code || !rowForm.name || !rowForm.dataHallId}
+            disabled={saving || !rowForm.name || !rowForm.dataHallId}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
             Add
@@ -211,19 +237,10 @@ export default function DestinationsPage() {
               <option value="">Select...</option>
               {selectedHallRows.map((r) => (
                 <option key={r.id} value={r.id}>
-                  {r.code} — {r.name}
+                  {r.name}
                 </option>
               ))}
             </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 dark:text-gray-400">Code</label>
-            <input
-              value={rackForm.code}
-              onChange={(e) => setRackForm((f) => ({ ...f, code: e.target.value }))}
-              placeholder="R01"
-              className={inputCls}
-            />
           </div>
           <div>
             <label className="block text-xs text-gray-500 dark:text-gray-400">Name</label>
@@ -236,7 +253,7 @@ export default function DestinationsPage() {
           </div>
           <button
             onClick={addRack}
-            disabled={saving || !rackForm.code || !rackForm.name || !rackForm.rowId}
+            disabled={saving || !rackForm.name || !rackForm.rowId}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
             Add
@@ -254,22 +271,25 @@ export default function DestinationsPage() {
             <div className="space-y-4">
               {halls.map((hall) => (
                 <div key={hall.id}>
-                  <div className="font-medium text-gray-900 dark:text-gray-100">
-                    🏢 {hall.code} — {hall.name}
+                  <div className="font-medium text-gray-900 dark:text-gray-100 flex items-center">
+                    <span>🏢 {hall.code} — {hall.name}</span>
+                    <button onClick={() => removeHall(hall.id, hall.name)} className={removeBtnCls}>Remove</button>
                   </div>
                   <div className="ml-6 space-y-1 mt-1">
                     {hall.rows.map((row) => (
                       <div key={row.id}>
-                        <div className="text-sm text-gray-700 dark:text-gray-300">
-                          ↳ Row {row.code} — {row.name}
+                        <div className="text-sm text-gray-700 dark:text-gray-300 flex items-center">
+                          <span>↳ Row: {row.name}</span>
+                          <button onClick={() => removeRow(hall.id, row.id, row.name)} className={removeBtnCls}>Remove</button>
                         </div>
                         <div className="ml-6 flex flex-wrap gap-1 mt-0.5">
                           {row.racks.map((rack) => (
                             <span
                               key={rack.id}
-                              className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded"
+                              className="px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 text-xs rounded inline-flex items-center gap-1"
                             >
-                              {rack.code}
+                              {rack.name}
+                              <button onClick={() => removeRack(hall.id, row.id, rack.id, rack.name)} className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">&times;</button>
                             </span>
                           ))}
                         </div>

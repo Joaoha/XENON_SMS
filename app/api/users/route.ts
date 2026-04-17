@@ -25,10 +25,17 @@ export async function POST(req: Request) {
   if (!username || !password) {
     return NextResponse.json({ error: "username and password required" }, { status: 400 })
   }
-  const passwordHash = await bcrypt.hash(password, 12)
-  const user = await prisma.user.create({
-    data: { username, passwordHash, role: role || "operator" },
-    select: { id: true, username: true, role: true, isActive: true, createdAt: true },
-  })
-  return NextResponse.json(user, { status: 201 })
+  try {
+    const passwordHash = await bcrypt.hash(password, 12)
+    const user = await prisma.user.create({
+      data: { username, passwordHash, role: role || "operator" },
+      select: { id: true, username: true, role: true, isActive: true, createdAt: true },
+    })
+    return NextResponse.json(user, { status: 201 })
+  } catch (err: unknown) {
+    if (err && typeof err === "object" && "code" in err && err.code === "P2002") {
+      return NextResponse.json({ error: "Username already exists" }, { status: 409 })
+    }
+    return NextResponse.json({ error: "Failed to create user" }, { status: 500 })
+  }
 }

@@ -14,6 +14,7 @@ enum Role {
 enum TransactionType {
   RECEIVE
   HANDOUT
+  TRANSFER
 }
 
 model User {
@@ -29,15 +30,22 @@ model User {
 }
 
 model StockItem {
-  id           String        @id @default(cuid())
-  sku          String        @unique
-  name         String
-  description  String?
-  unit         String        @default("units")
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  transactions Transaction[]
+  id                 String         @id @default(cuid())
+  sku                String         @unique
+  name               String
+  description        String?
+  unit               String         @default("units")
+  warehouseId        String?
+  warehouseRowId     String?
+  shelfId            String?
+  isActive           Boolean        @default(true)
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  warehouse          Warehouse?     @relation(fields: [warehouseId], references: [id])
+  warehouseRow       WarehouseRow?  @relation(fields: [warehouseRowId], references: [id])
+  shelf              Shelf?         @relation(fields: [shelfId], references: [id])
+  transactions       Transaction[]
+  stockBalances      StockBalance[]
 }
 
 model DataHall {
@@ -54,49 +62,104 @@ model Row {
   id           String        @id @default(cuid())
   dataHallId   String
   name         String
-  code         String
   isActive     Boolean       @default(true)
   createdAt    DateTime      @default(now())
   dataHall     DataHall      @relation(fields: [dataHallId], references: [id])
   racks        Rack[]
   transactions Transaction[]
 
-  @@unique([dataHallId, code])
+  @@unique([dataHallId, name])
 }
 
 model Rack {
   id           String        @id @default(cuid())
   rowId        String
   name         String
-  code         String
   isActive     Boolean       @default(true)
   createdAt    DateTime      @default(now())
   row          Row           @relation(fields: [rowId], references: [id])
   transactions Transaction[]
 
-  @@unique([rowId, code])
+  @@unique([rowId, name])
+}
+
+model StockBalance {
+  id          String    @id @default(cuid())
+  stockItemId String
+  warehouseId String
+  quantity    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  stockItem StockItem @relation(fields: [stockItemId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+
+  @@unique([stockItemId, warehouseId])
+}
+
+model Warehouse {
+  id                      String         @id @default(cuid())
+  name                    String
+  code                    String         @unique
+  isActive                Boolean        @default(true)
+  createdAt               DateTime       @default(now())
+  rows                    WarehouseRow[]
+  stockItems              StockItem[]
+  stockBalances           StockBalance[]
+  sourceTransactions      Transaction[]  @relation("SourceWarehouse")
+  destinationTransactions Transaction[]  @relation("DestinationWarehouse")
+}
+
+model WarehouseRow {
+  id          String      @id @default(cuid())
+  warehouseId String
+  name        String
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  warehouse   Warehouse   @relation(fields: [warehouseId], references: [id])
+  shelves     Shelf[]
+  stockItems  StockItem[]
+
+  @@unique([warehouseId, name])
+}
+
+model Shelf {
+  id             String       @id @default(cuid())
+  warehouseRowId String
+  name           String
+  isActive       Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  warehouseRow   WarehouseRow @relation(fields: [warehouseRowId], references: [id])
+  stockItems     StockItem[]
+
+  @@unique([warehouseRowId, name])
 }
 
 model Transaction {
-  id          String          @id @default(cuid())
-  type        TransactionType
-  stockItemId String
-  quantity    Int
-  userId      String
-  pickedBy    String?
-  dataHallId  String?
-  rowId       String?
-  rackId      String?
-  notes       String?
-  reference   String?
-  createdAt   DateTime        @default(now())
-  deletedAt   DateTime?
-  deletedBy   String?
+  id                     String          @id @default(cuid())
+  type                   TransactionType
+  stockItemId            String
+  quantity               Int
+  userId                 String
+  pickedBy               String?
+  dataHallId             String?
+  rowId                  String?
+  rackId                 String?
+  sourceWarehouseId      String?
+  destinationWarehouseId String?
+  notes                  String?
+  reference              String?
+  batchId                String?
+  createdAt              DateTime        @default(now())
+  deletedAt              DateTime?
+  deletedBy              String?
 
-  stockItem     StockItem @relation(fields: [stockItemId], references: [id])
-  user          User      @relation(fields: [userId], references: [id])
-  dataHall      DataHall? @relation(fields: [dataHallId], references: [id])
-  row           Row?      @relation(fields: [rowId], references: [id])
-  rack          Rack?     @relation(fields: [rackId], references: [id])
-  deletedByUser User?     @relation("DeletedTransactions", fields: [deletedBy], references: [id])
+  stockItem            StockItem  @relation(fields: [stockItemId], references: [id])
+  user                 User       @relation(fields: [userId], references: [id])
+  dataHall             DataHall?  @relation(fields: [dataHallId], references: [id])
+  row                  Row?       @relation(fields: [rowId], references: [id])
+  rack                 Rack?      @relation(fields: [rackId], references: [id])
+  sourceWarehouse      Warehouse? @relation("SourceWarehouse", fields: [sourceWarehouseId], references: [id])
+  destinationWarehouse Warehouse? @relation("DestinationWarehouse", fields: [destinationWarehouseId], references: [id])
+  deletedByUser        User?      @relation("DeletedTransactions", fields: [deletedBy], references: [id])
 }

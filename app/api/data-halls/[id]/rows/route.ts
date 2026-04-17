@@ -4,15 +4,28 @@ import { prisma } from "@/lib/db"
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
-  if (!session || (session.user as { role?: string }).role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
   const { id: dataHallId } = await params
   const body = await req.json()
-  const { name, code } = body
-  if (!name || !code) {
-    return NextResponse.json({ error: "name and code are required" }, { status: 400 })
+  const { name } = body
+  if (!name) {
+    return NextResponse.json({ error: "name is required" }, { status: 400 })
   }
-  const row = await prisma.row.create({ data: { dataHallId, name, code: code.toUpperCase() } })
-  return NextResponse.json(row, { status: 201 })
+  try {
+    const row = await prisma.row.create({ data: { dataHallId, name } })
+    return NextResponse.json(row, { status: 201 })
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : "Failed to create row"
+    if (msg.includes("Unique constraint")) {
+      const existing = await prisma.row.findFirst({ where: { dataHallId, name, isActive: false } })
+      if (existing) {
+        const reactivated = await prisma.row.update({ where: { id: existing.id }, data: { isActive: true } })
+        return NextResponse.json(reactivated, { status: 201 })
+      }
+      return NextResponse.json({ error: "A row with that name already exists in this data hall" }, { status: 409 })
+    }
+    return NextResponse.json({ error: msg }, { status: 500 })
+  }
 }

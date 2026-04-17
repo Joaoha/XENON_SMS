@@ -1,6 +1,6 @@
 # XENON Stock Management System — Deployment Guide
 
-Version: **1.0.0**
+Version: **1.1.0**
 
 ---
 
@@ -56,7 +56,7 @@ AUTH_SECRET="your-secret"   # openssl rand -base64 32
 ### 2. Build the image
 
 ```bash
-docker build -t xenon-sms:1.0.0 .
+docker build -t xenon-sms:1.1.0 .
 ```
 
 ### 3. Run
@@ -67,7 +67,7 @@ docker run -d \
   --env-file .env \
   -p 3000:3000 \
   --restart unless-stopped \
-  xenon-sms:1.0.0
+  xenon-sms:1.1.0
 ```
 
 The container will:
@@ -157,10 +157,9 @@ cp .env.example .env
 # Edit .env with your DATABASE_URL and AUTH_SECRET
 ```
 
-### 3. Generate Prisma client and run migrations
+### 3. Run database migrations
 
 ```bash
-npx prisma generate
 npx prisma migrate deploy
 ```
 
@@ -253,6 +252,7 @@ npm test
 - [ ] Logged in and changed the admin password (Admin → Users)
 - [ ] Created stock items (Admin → Stock Items)
 - [ ] Set up destination hierarchy: Data Halls → Rows → Racks (Admin → Destinations)
+- [ ] Set up storage locations: Warehouses → Rows → Shelves (Admin → Storage Locations)
 - [ ] Created operator accounts for field staff (Admin → Users)
 - [ ] Confirmed stock balance view shows correct data
 - [ ] Confirmed CSV export works from the Reports page

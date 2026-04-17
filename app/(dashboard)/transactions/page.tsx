@@ -1,21 +1,26 @@
 "use client"
 
+import { generatePickingListPdf } from "@/components/picking-list"
+import type { PickingListData } from "@/components/picking-list"
 import { useState, useEffect, useCallback } from "react"
 
 interface Transaction {
   id: string
-  type: "RECEIVE" | "HANDOUT"
+  type: "RECEIVE" | "HANDOUT" | "TRANSFER"
   quantity: number
   pickedBy: string | null
   reference: string | null
   notes: string | null
+  batchId: string | null
   createdAt: string
   deletedAt: string | null
   stockItem: { id: string; sku: string; name: string; unit: string }
   user: { id: string; username: string }
   dataHall: { id: string; code: string; name: string } | null
-  row: { id: string; code: string; name: string } | null
-  rack: { id: string; code: string; name: string } | null
+  row: { id: string; name: string } | null
+  rack: { id: string; name: string } | null
+  sourceWarehouse: { id: string; name: string; code: string } | null
+  destinationWarehouse: { id: string; name: string; code: string } | null
   deletedByUser: { id: string; username: string } | null
 }
 
@@ -25,10 +30,18 @@ interface StockItem {
   name: string
 }
 
+interface Warehouse {
+  id: string
+  code: string
+  name: string
+  isActive: boolean
+}
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [total, setTotal] = useState(0)
   const [items, setItems] = useState<StockItem[]>([])
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [loading, setLoading] = useState(true)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [filters, setFilters] = useState({
@@ -37,6 +50,7 @@ export default function TransactionsPage() {
     pickedBy: "",
     from: "",
     to: "",
+    warehouseId: "",
   })
   const [page, setPage] = useState(1)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -44,12 +58,16 @@ export default function TransactionsPage() {
   const limit = 50
 
   useEffect(() => {
-    fetch("/api/stock-items")
-      .then((r) => r.json())
-      .then(setItems)
-    fetch("/api/me")
-      .then((r) => r.json())
-      .then((data) => setUserRole(data.role))
+    const safeJson = (r: Response) => r.json().catch(() => null)
+    Promise.all([
+      fetch("/api/stock-items").then(safeJson),
+      fetch("/api/me").then(safeJson),
+      fetch("/api/warehouses").then(safeJson),
+    ]).then(([stockItems, me, wh]) => {
+      if (Array.isArray(stockItems)) setItems(stockItems)
+      if (me?.role) setUserRole(me.role)
+      if (Array.isArray(wh)) setWarehouses(wh)
+    })
   }, [])
 
   const fetchTransactions = useCallback(async () => {
@@ -60,22 +78,18 @@ export default function TransactionsPage() {
     if (filters.pickedBy) params.set("pickedBy", filters.pickedBy)
     if (filters.from) params.set("from", filters.from)
     if (filters.to) params.set("to", filters.to)
+    if (filters.warehouseId) params.set("warehouseId", filters.warehouseId)
     params.set("page", String(page))
     params.set("limit", String(limit))
-    try {
-      const res = await fetch(`/api/transactions?${params}`)
-      if (!res.ok) {
-        setLoading(false)
-        return
-      }
-      const data = await res.json()
-      setTransactions(data.transactions)
-      setTotal(data.total)
-    } catch {
-      // network error or malformed response
-    } finally {
+    const res = await fetch(`/api/transactions?${params}`)
+    if (!res.ok) {
       setLoading(false)
+      return
     }
+    const data = await res.json()
+    setTransactions(data.transactions)
+    setTotal(data.total)
+    setLoading(false)
   }, [filters, page])
 
   useEffect(() => {
@@ -85,6 +99,40 @@ export default function TransactionsPage() {
   function handleFilterChange(key: string, value: string) {
     setFilters((f) => ({ ...f, [key]: value }))
     setPage(1)
+  }
+
+  async function handleReprintBatch(batchId: string) {
+    const res = await fetch(`/api/transactions/batch/${batchId}`)
+    if (!res.ok) return
+    const { transactions: batchTxns } = await res.json()
+    const first = batchTxns[0]
+    const destParts = [
+      first.dataHall ? `${first.dataHall.code} \u2014 ${first.dataHall.name}` : "",
+      first.row ? first.row.name : "",
+      first.rack ? first.rack.name : "",
+    ].filter(Boolean)
+
+    const data: PickingListData = {
+      date: new Date(first.createdAt).toLocaleDateString(),
+      picker: first.pickedBy || "\u2014",
+      destination: destParts.join(" \u2192 ") || "\u2014",
+      reference: first.reference || "",
+      notes: first.notes || "",
+      items: batchTxns.map((t: { stockItem: { sku: string; name: string; unit: string; warehouse: { name: string } | null; warehouseRow: { name: string } | null; shelf: { name: string } | null }; quantity: number }) => {
+        const loc = [t.stockItem.warehouse?.name, t.stockItem.warehouseRow?.name, t.stockItem.shelf?.name].filter(Boolean)
+        return {
+          sku: t.stockItem.sku,
+          name: t.stockItem.name,
+          quantity: t.quantity,
+          unit: t.stockItem.unit,
+          storageLocation: loc.length > 0 ? loc.join(" \u2192 ") : null,
+        }
+      }),
+    }
+    const doc = generatePickingListPdf(data)
+    const blob = doc.output("blob")
+    const url = URL.createObjectURL(blob)
+    window.open(url, "_blank")
   }
 
   async function handleDelete(id: string) {
@@ -97,6 +145,41 @@ export default function TransactionsPage() {
       }
     } finally {
       setDeleting(false)
+    }
+  }
+
+  function formatDestination(t: Transaction): string {
+    if (t.type === "TRANSFER") {
+      const src = t.sourceWarehouse ? `${t.sourceWarehouse.code}` : "?"
+      const dst = t.destinationWarehouse ? `${t.destinationWarehouse.code}` : "?"
+      return `${src} \u2192 ${dst}`
+    }
+    if (t.type === "RECEIVE" && t.destinationWarehouse) {
+      return `\u2192 ${t.destinationWarehouse.code}`
+    }
+    if (t.type === "HANDOUT" && t.sourceWarehouse) {
+      return `${t.sourceWarehouse.code} \u2192 ${t.dataHall ? `${t.dataHall.code} / ${t.row?.name} / ${t.rack?.name}` : "\u2014"}`
+    }
+    if (t.dataHall) {
+      return `${t.dataHall.code} / ${t.row?.name} / ${t.rack?.name}`
+    }
+    return "\u2014"
+  }
+
+  function typeColor(type: string): string {
+    switch (type) {
+      case "RECEIVE": return "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300"
+      case "HANDOUT": return "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300"
+      case "TRANSFER": return "bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300"
+      default: return "bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300"
+    }
+  }
+
+  function qtyPrefix(type: string): string {
+    switch (type) {
+      case "RECEIVE": return "+"
+      case "HANDOUT": return "-"
+      default: return ""
     }
   }
 
@@ -126,7 +209,7 @@ export default function TransactionsPage() {
                 disabled={deleting}
                 className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-40"
               >
-                {deleting ? "Deleting…" : "Delete"}
+                {deleting ? "Deleting\u2026" : "Delete"}
               </button>
             </div>
           </div>
@@ -143,7 +226,7 @@ export default function TransactionsPage() {
         </a>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 grid grid-cols-2 md:grid-cols-6 gap-3">
         <select
           value={filters.itemId}
           onChange={(e) => handleFilterChange("itemId", e.target.value)}
@@ -152,7 +235,7 @@ export default function TransactionsPage() {
           <option value="">All items</option>
           {items.map((item) => (
             <option key={item.id} value={item.id}>
-              {item.sku} — {item.name}
+              {item.sku} \u2014 {item.name}
             </option>
           ))}
         </select>
@@ -165,6 +248,20 @@ export default function TransactionsPage() {
           <option value="">All types</option>
           <option value="RECEIVE">Receive</option>
           <option value="HANDOUT">Handout</option>
+          <option value="TRANSFER">Transfer</option>
+        </select>
+
+        <select
+          value={filters.warehouseId}
+          onChange={(e) => handleFilterChange("warehouseId", e.target.value)}
+          className={filterCls}
+        >
+          <option value="">All warehouses</option>
+          {warehouses.map((wh) => (
+            <option key={wh.id} value={wh.id}>
+              {wh.code} \u2014 {wh.name}
+            </option>
+          ))}
         </select>
 
         <input
@@ -207,11 +304,9 @@ export default function TransactionsPage() {
                   <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Qty</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Recorded By</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Picked By</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Destination</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Location</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Reference</th>
-                  {userRole === "admin" && (
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
-                  )}
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
@@ -236,13 +331,7 @@ export default function TransactionsPage() {
                             DELETED
                           </span>
                         ) : (
-                          <span
-                            className={`px-2 py-0.5 rounded text-xs font-medium ${
-                              t.type === "RECEIVE"
-                                ? "bg-green-100 dark:bg-green-900/50 text-green-800 dark:text-green-300"
-                                : "bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300"
-                            }`}
-                          >
+                          <span className={`px-2 py-0.5 rounded text-xs font-medium ${typeColor(t.type)}`}>
                             {t.type}
                           </span>
                         )}
@@ -252,19 +341,26 @@ export default function TransactionsPage() {
                         <div className="text-xs text-gray-400 dark:text-gray-500">{t.stockItem.sku}</div>
                       </td>
                       <td className={`px-4 py-3 text-right font-medium text-gray-900 dark:text-gray-100 ${isDeleted ? "line-through" : ""}`}>
-                        {t.type === "RECEIVE" ? "+" : "-"}{t.quantity} {t.stockItem.unit}
+                        {qtyPrefix(t.type)}{t.quantity} {t.stockItem.unit}
                       </td>
                       <td className={`px-4 py-3 ${isDeleted ? "line-through text-gray-400" : "text-gray-600 dark:text-gray-400"}`}>{t.user.username}</td>
-                      <td className={`px-4 py-3 ${isDeleted ? "line-through text-gray-400" : "text-gray-600 dark:text-gray-400"}`}>{t.pickedBy || "—"}</td>
+                      <td className={`px-4 py-3 ${isDeleted ? "line-through text-gray-400" : "text-gray-600 dark:text-gray-400"}`}>{t.pickedBy || "\u2014"}</td>
                       <td className={`px-4 py-3 ${isDeleted ? "line-through text-gray-400" : "text-gray-600 dark:text-gray-400"}`}>
-                        {t.dataHall
-                          ? `${t.dataHall.code} / ${t.row?.code} / ${t.rack?.code}`
-                          : "—"}
+                        {formatDestination(t)}
                       </td>
-                      <td className={`px-4 py-3 ${isDeleted ? "line-through text-gray-400" : "text-gray-500 dark:text-gray-400"}`}>{t.reference || "—"}</td>
-                      {userRole === "admin" && (
-                        <td className="px-4 py-3">
-                          {!isDeleted && (
+                      <td className={`px-4 py-3 ${isDeleted ? "line-through text-gray-400" : "text-gray-500 dark:text-gray-400"}`}>{t.reference || "\u2014"}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {!isDeleted && t.type === "HANDOUT" && t.batchId && (
+                            <button
+                              onClick={() => handleReprintBatch(t.batchId!)}
+                              className="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 font-medium"
+                              title="Print stock handout"
+                            >
+                              Print
+                            </button>
+                          )}
+                          {!isDeleted && userRole === "admin" && (
                             <button
                               onClick={() => setConfirmDeleteId(t.id)}
                               className="text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 font-medium"
@@ -272,8 +368,8 @@ export default function TransactionsPage() {
                               Delete
                             </button>
                           )}
-                        </td>
-                      )}
+                        </div>
+                      </td>
                     </tr>
                   )
                 })}
@@ -288,7 +384,7 @@ export default function TransactionsPage() {
                 disabled={page === 1}
                 className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-40"
               >
-                ← Prev
+                \u2190 Prev
               </button>
               <span className="text-sm text-gray-600 dark:text-gray-400">
                 Page {page} of {totalPages}
@@ -298,7 +394,7 @@ export default function TransactionsPage() {
                 disabled={page === totalPages}
                 className="px-3 py-1 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 disabled:opacity-40"
               >
-                Next →
+                Next \u2192
               </button>
             </div>
           )}

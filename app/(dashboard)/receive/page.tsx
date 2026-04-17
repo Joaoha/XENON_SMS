@@ -10,18 +10,48 @@ interface StockItem {
   unit: string
 }
 
+interface Warehouse {
+  id: string
+  code: string
+  name: string
+  rows: WRow[]
+}
+
+interface WRow {
+  id: string
+  name: string
+  shelves: WShelf[]
+}
+
+interface WShelf {
+  id: string
+  name: string
+}
+
 export default function ReceivePage() {
   const router = useRouter()
   const [items, setItems] = useState<StockItem[]>([])
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  const [selectedWarehouse, setSelectedWarehouse] = useState("")
+  const [selectedRow, setSelectedRow] = useState("")
+  const [selectedShelf, setSelectedShelf] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
   useEffect(() => {
-    fetch("/api/stock-items")
-      .then((r) => r.json())
-      .then(setItems)
+    const safeJson = (r: Response) => r.json().catch(() => null)
+    Promise.all([
+      fetch("/api/stock-items").then(safeJson),
+      fetch("/api/warehouses").then(safeJson),
+    ]).then(([stockItems, wh]) => {
+      if (Array.isArray(stockItems)) setItems(stockItems)
+      if (Array.isArray(wh)) setWarehouses(wh)
+    })
   }, [])
+
+  const whRows = warehouses.find((w) => w.id === selectedWarehouse)?.rows || []
+  const whShelves = whRows.find((r) => r.id === selectedRow)?.shelves || []
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -35,6 +65,7 @@ export default function ReceivePage() {
       quantity: parseInt((form.elements.namedItem("quantity") as HTMLInputElement).value),
       reference: (form.elements.namedItem("reference") as HTMLInputElement).value,
       notes: (form.elements.namedItem("notes") as HTMLTextAreaElement).value,
+      destinationWarehouseId: selectedWarehouse || undefined,
     }
     const res = await fetch("/api/transactions", {
       method: "POST",
@@ -46,10 +77,28 @@ export default function ReceivePage() {
       const err = await res.json()
       setError(err.error || "Failed to record receipt")
     } else {
+      if (selectedWarehouse || selectedRow || selectedShelf) {
+        const stockItemId = (form.elements.namedItem("stockItemId") as HTMLSelectElement).value
+        await fetch(`/api/stock-items/${stockItemId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            warehouseId: selectedWarehouse || null,
+            warehouseRowId: selectedRow || null,
+            shelfId: selectedShelf || null,
+          }),
+        })
+      }
       setSuccess("Stock receipt recorded successfully!")
       form.reset()
+      setSelectedWarehouse("")
+      setSelectedRow("")
+      setSelectedShelf("")
     }
   }
+
+  const inputCls = "mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+  const inputClsDisabled = `${inputCls} disabled:bg-gray-50 dark:disabled:bg-gray-800 disabled:text-gray-400 dark:disabled:text-gray-500`
 
   return (
     <div className="max-w-lg space-y-6">
@@ -64,7 +113,7 @@ export default function ReceivePage() {
           <select
             name="stockItemId"
             required
-            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={inputCls}
           >
             <option value="">Select item...</option>
             {items.map((item) => (
@@ -82,9 +131,70 @@ export default function ReceivePage() {
             type="number"
             min="1"
             required
-            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={inputCls}
           />
         </div>
+
+        <fieldset className="border border-gray-200 dark:border-gray-600 rounded-md p-4 space-y-3">
+          <legend className="text-sm font-medium text-gray-700 dark:text-gray-300 px-1">Storage Location *</legend>
+          <div>
+            <label className="block text-xs text-gray-500 dark:text-gray-400">Warehouse</label>
+            <select
+              value={selectedWarehouse}
+              onChange={(e) => {
+                setSelectedWarehouse(e.target.value)
+                setSelectedRow("")
+                setSelectedShelf("")
+              }}
+              required
+              className={inputCls}
+            >
+              <option value="">Select warehouse...</option>
+              {warehouses.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.code} — {w.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-500 dark:text-gray-400">Row</label>
+            <select
+              value={selectedRow}
+              onChange={(e) => {
+                setSelectedRow(e.target.value)
+                setSelectedShelf("")
+              }}
+              disabled={!selectedWarehouse}
+              className={inputClsDisabled}
+            >
+              <option value="">Select row...</option>
+              {whRows.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs text-gray-500 dark:text-gray-400">Shelf</label>
+            <select
+              value={selectedShelf}
+              onChange={(e) => setSelectedShelf(e.target.value)}
+              disabled={!selectedRow}
+              className={inputClsDisabled}
+            >
+              <option value="">Select shelf...</option>
+              {whShelves.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </fieldset>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Reference / PO Number</label>
@@ -92,7 +202,7 @@ export default function ReceivePage() {
             name="reference"
             type="text"
             placeholder="e.g. PO-12345"
-            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={`${inputCls} placeholder-gray-400 dark:placeholder-gray-500`}
           />
         </div>
 
@@ -101,7 +211,7 @@ export default function ReceivePage() {
           <textarea
             name="notes"
             rows={3}
-            className="mt-1 block w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            className={inputCls}
           />
         </div>
 

@@ -1,8 +1,8 @@
 # XENON Stock Management System
 
-Internal web application for tracking stock receipt, stock handout, picker identity, and destination (Data Hall → Row → Rack).
+Internal web application for tracking stock receipt, stock handout, picker identity, and destination (Data Hall → Row → Rack). Includes warehouse storage locations, inter-warehouse transfers, and PDF picking lists.
 
-**Version:** 1.0.0
+**Version:** 1.1.0
 
 ---
 
@@ -26,7 +26,7 @@ AUTH_SECRET="your-secret-here"   # openssl rand -base64 32
 ### 2. Build the image
 
 ```bash
-docker build -t xenon-sms:1.0.0 .
+docker build -t xenon-sms:1.1.0 .
 ```
 
 ### 3. Run
@@ -36,7 +36,7 @@ docker run -d \
   --name xenon-sms \
   --env-file .env \
   -p 3000:3000 \
-  xenon-sms:1.0.0
+  xenon-sms:1.1.0
 ```
 
 That's it. The container automatically runs database migrations on startup, then serves the app at **http://localhost:3000**.
@@ -71,13 +71,17 @@ Docker Compose automatically reads `.env` from the current directory — no extr
 ## Features
 
 - **User auth** — Secure login, role-based access (admin / operator)
-- **Stock items** — SKU-based item master with units
-- **Destinations** — Data Hall → Row → Rack hierarchy
+- **Stock items** — SKU-based item master with units and storage location assignment
+- **Destinations** — Data Hall → Row → Rack hierarchy for handout tracking
+- **Storage locations** — Warehouse → Row → Shelf hierarchy for physical stock location
 - **Receive stock** — Record incoming stock with quantity, notes, and reference
 - **Hand out stock** — Record stock handout with picker identity and destination
-- **Stock balances** — Live stock-on-hand view with search
+- **Transfer stock** — Move stock between warehouses with per-warehouse balance tracking
+- **Stock balances** — Live stock-on-hand view with search, per-warehouse filtering
 - **Transaction history** — Full audit trail, soft-delete with admin override
 - **Reports** — Stock on hand, movements by date/person/destination, CSV export
+- **PDF picking lists** — Generate picking list PDFs from handout transactions
+- **User management** — Admin can add, edit, and remove user accounts
 
 ---
 

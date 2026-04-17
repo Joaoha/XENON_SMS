@@ -14,13 +14,16 @@ const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: "📊" },
   { href: "/receive", label: "Receive Stock", icon: "📥" },
   { href: "/handout", label: "Hand Out", icon: "📤" },
+  { href: "/transfer", label: "Transfer", icon: "🔄" },
   { href: "/transactions", label: "Transactions", icon: "📋" },
   { href: "/reports", label: "Reports", icon: "📈" },
+  { href: "/admin/stock-items", label: "Stock Items", icon: "🗂️" },
+  { href: "/admin/destinations", label: "Destinations", icon: "🏢" },
+  { href: "/admin/storage-locations", label: "Storage Locations", icon: "📦" },
 ]
 
 const adminItems = [
-  { href: "/admin/stock-items", label: "Stock Items", icon: "🗂️" },
-  { href: "/admin/destinations", label: "Destinations", icon: "🏢" },
+  { href: "/admin/users", label: "Users", icon: "👤" },
 ]
 
 export function Nav({ username, role }: NavProps) {

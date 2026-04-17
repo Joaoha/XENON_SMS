@@ -46,8 +46,8 @@ export default function ReportsPage() {
     params.set("limit", "1000")
     const res = await fetch(`/api/transactions?${params}`)
     const data = await res.json()
-    setTransactions(data.transactions)
-    setTotal(data.total)
+    setTransactions(data.transactions ?? [])
+    setTotal(data.total ?? 0)
     setLoading(false)
   }, [filters])
 

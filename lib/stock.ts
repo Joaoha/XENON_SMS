@@ -1,17 +1,8 @@
-/**
- * Pure business logic for stock management.
- * These functions have no side effects and can be tested without a database.
- */
-
 export interface GroupedTransactionResult {
   type: string
   _sum: { quantity: number | null }
 }
 
-/**
- * Compute current balance for a stock item from grouped transaction results.
- * Balance = SUM(RECEIVE) - SUM(HANDOUT)
- */
 export function computeBalance(grouped: GroupedTransactionResult[]): number {
   let received = 0
   let handedOut = 0
@@ -36,10 +27,6 @@ export interface TransactionInput {
 
 export type ValidationResult = { valid: true } | { valid: false; error: string }
 
-/**
- * Validate a transaction input before persisting.
- * Returns { valid: true } or { valid: false, error: string }.
- */
 export function validateTransactionInput(
   body: TransactionInput,
   currentBalance?: number
@@ -66,6 +53,50 @@ export function validateTransactionInput(
     }
     if (currentBalance !== undefined && qty > currentBalance) {
       return { valid: false, error: `Insufficient stock. Available: ${currentBalance}` }
+    }
+  }
+
+  return { valid: true }
+}
+
+export interface TransferItem {
+  stockItemId: string
+  quantity: number
+  sourceWarehouseId: string
+  destinationWarehouseId: string
+}
+
+export interface TransferInput {
+  items?: unknown
+  notes?: unknown
+  reference?: unknown
+}
+
+export function validateTransferInput(body: TransferInput): ValidationResult {
+  const { items } = body
+  if (!Array.isArray(items) || items.length === 0) {
+    return { valid: false, error: "items array is required and must not be empty" }
+  }
+
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    const prefix = items.length > 1 ? `Item ${i + 1}: ` : ""
+
+    if (!item.stockItemId) {
+      return { valid: false, error: `${prefix}stockItemId is required` }
+    }
+
+    const qty = Number(item.quantity)
+    if (isNaN(qty) || qty <= 0) {
+      return { valid: false, error: `${prefix}quantity must be positive` }
+    }
+
+    if (!item.sourceWarehouseId || !item.destinationWarehouseId) {
+      return { valid: false, error: `${prefix}sourceWarehouseId and destinationWarehouseId are required` }
+    }
+
+    if (item.sourceWarehouseId === item.destinationWarehouseId) {
+      return { valid: false, error: `${prefix}source and destination warehouses must be different` }
     }
   }
 
