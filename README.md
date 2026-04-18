@@ -6,7 +6,49 @@ Internal web application for tracking stock receipt, stock handout, picker ident
 
 ---
 
-## Quick Start — Docker
+## One-Line Install (Linux)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/JoaoHa/XENON_SMS/main/install.sh | bash
+```
+
+This installs Docker (if needed), clones the repo to `~/xenon-sms`, generates secrets, and starts the app. Tested on Ubuntu 22.04/24.04 and Fedora 39/40.
+
+Override defaults with environment variables:
+
+```bash
+XENON_INSTALL_DIR=/opt/xenon XENON_PORT=8080 bash install.sh
+```
+
+After install, open **http://localhost:3000** and create your admin user:
+
+```bash
+curl -X POST http://localhost:3000/api/seed \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "changeme"}'
+```
+
+### Uninstall
+
+```bash
+~/xenon-sms/uninstall.sh
+```
+
+Stops containers, removes Docker volumes (including the database), and optionally removes the install directory and Docker itself. Interactive prompts prevent accidental data loss.
+
+### Manage
+
+```bash
+cd ~/xenon-sms
+docker compose logs -f      # view logs
+docker compose stop          # stop the app
+docker compose start         # start the app
+docker compose up -d --build # rebuild after updates
+```
+
+---
+
+## Quick Start — Docker (Manual)
 
 The fastest way to run XENON SMS is a single Docker container connected to your PostgreSQL database.
 
