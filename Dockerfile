@@ -38,12 +38,10 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static    ./.next/static
 COPY --from=builder /app/public          ./public
 
-# Prisma: schema, migrations, config, CLI, and generated client
+# Prisma: schema, migrations, config, and full node_modules for CLI + transitive deps
 COPY --from=builder /app/prisma            ./prisma
 COPY --from=builder /app/prisma.config.ts  ./prisma.config.ts
-COPY --from=builder /app/node_modules/.prisma  ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma  ./node_modules/@prisma
-COPY --from=builder /app/node_modules/prisma   ./node_modules/prisma
+COPY --from=builder /app/node_modules      ./node_modules
 
 USER nextjs
 
