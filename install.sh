@@ -4,7 +4,7 @@ set -euo pipefail
 # XENON SMS — Linux Install Script (Docker-based)
 # Installs Docker if missing, clones the repo, generates config, and starts the app.
 
-REPO_URL="https://github.com/JoaoHa/XENON_SMS.git"
+REPO_URL="https://github.com/Joaoha/XENON_SMS.git"
 INSTALL_DIR="${XENON_INSTALL_DIR:-$HOME/xenon-sms}"
 PORT="${XENON_PORT:-3000}"
 

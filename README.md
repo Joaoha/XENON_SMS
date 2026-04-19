@@ -9,7 +9,7 @@ Internal web application for tracking stock receipt, stock handout, picker ident
 ## One-Line Install (Linux)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/JoaoHa/XENON_SMS/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Joaoha/XENON_SMS/refs/heads/main/install.sh | bash
 ```
 
 This installs Docker (if needed), clones the repo to `~/xenon-sms`, generates secrets, and starts the app. Tested on Ubuntu 22.04/24.04 and Fedora 39/40.
