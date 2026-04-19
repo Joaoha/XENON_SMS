@@ -132,21 +132,28 @@ EOF
   info ".env created at $env_file"
 }
 
+docker_cmd() {
+  if docker info &>/dev/null 2>&1; then
+    "$@"
+  else
+    sudo "$@"
+  fi
+}
+
 start_app() {
   info "Starting XENON SMS..."
   cd "$INSTALL_DIR"
 
   # Use 'docker compose' (v2 plugin) or fall back to 'docker-compose'
-  local compose_cmd
-  if docker compose version &>/dev/null; then
-    compose_cmd="docker compose"
+  if docker compose version &>/dev/null 2>&1 || sudo docker compose version &>/dev/null 2>&1; then
+    COMPOSE="docker compose"
   elif command -v docker-compose &>/dev/null; then
-    compose_cmd="docker-compose"
+    COMPOSE="docker-compose"
   else
     die "Neither 'docker compose' nor 'docker-compose' found."
   fi
 
-  $compose_cmd up -d --build
+  docker_cmd $COMPOSE up -d --build
 
   info "Waiting for the app to become healthy..."
   local retries=30
@@ -159,7 +166,7 @@ start_app() {
   done
 
   if [ $retries -eq 0 ]; then
-    warn "App did not respond within 60s. Check logs: $compose_cmd logs app"
+    warn "App did not respond within 60s. Check logs: docker compose logs app"
   fi
 }
 
