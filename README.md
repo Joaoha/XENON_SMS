@@ -2,7 +2,7 @@
 
 Internal web application for tracking stock receipt, stock handout, picker identity, and destination (Data Hall → Row → Rack). Includes warehouse storage locations, inter-warehouse transfers, and PDF picking lists.
 
-**Version:** 1.1.0
+**Version:** 1.2.0
 
 ---
 
@@ -68,7 +68,7 @@ AUTH_SECRET="your-secret-here"   # openssl rand -base64 32
 ### 2. Build the image
 
 ```bash
-docker build -t xenon-sms:1.1.0 .
+docker build -t xenon-sms:1.2.0 .
 ```
 
 ### 3. Run
@@ -78,7 +78,7 @@ docker run -d \
   --name xenon-sms \
   --env-file .env \
   -p 3000:3000 \
-  xenon-sms:1.1.0
+  xenon-sms:1.2.0
 ```
 
 That's it. The container automatically runs database migrations on startup, then serves the app at **http://localhost:3000**.
