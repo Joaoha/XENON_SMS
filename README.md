@@ -1,36 +1,133 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# XENON Stock Management System
 
-## Getting Started
+Internal web application for tracking stock receipt, stock handout, picker identity, and destination (Data Hall → Row → Rack). Includes warehouse storage locations, inter-warehouse transfers, and PDF picking lists.
 
-First, run the development server:
+**Version:** 1.1.0
+
+---
+
+## One-Line Install (Linux)
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+curl -fsSL https://raw.githubusercontent.com/Joaoha/XENON_SMS/refs/heads/main/install.sh | bash
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+This installs Docker (if needed), clones the repo to `~/xenon-sms`, generates secrets, and starts the app. Tested on Ubuntu 22.04/24.04 and Fedora 39/40.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Override defaults with environment variables:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+XENON_INSTALL_DIR=/opt/xenon XENON_PORT=8080 bash install.sh
+```
 
-## Learn More
+After install, open **http://localhost:3000** and create your admin user:
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+curl -X POST http://localhost:3000/api/seed \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "changeme"}'
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Uninstall
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+~/xenon-sms/uninstall.sh
+```
 
-## Deploy on Vercel
+Stops containers, removes Docker volumes (including the database), and optionally removes the install directory and Docker itself. Interactive prompts prevent accidental data loss.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Manage
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+cd ~/xenon-sms
+docker compose logs -f      # view logs
+docker compose stop          # stop the app
+docker compose start         # start the app
+docker compose up -d --build # rebuild after updates
+```
+
+---
+
+## Quick Start — Docker (Manual)
+
+The fastest way to run XENON SMS is a single Docker container connected to your PostgreSQL database.
+
+### 1. Create your environment file
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your values:
+
+```env
+DATABASE_URL="postgresql://USER:PASSWORD@HOST:5432/xenon_sms"
+AUTH_SECRET="your-secret-here"   # openssl rand -base64 32
+```
+
+### 2. Build the image
+
+```bash
+docker build -t xenon-sms:1.1.0 .
+```
+
+### 3. Run
+
+```bash
+docker run -d \
+  --name xenon-sms \
+  --env-file .env \
+  -p 3000:3000 \
+  xenon-sms:1.1.0
+```
+
+That's it. The container automatically runs database migrations on startup, then serves the app at **http://localhost:3000**.
+
+### 4. Create the first admin user
+
+```bash
+curl -X POST http://localhost:3000/api/seed \
+  -H "Content-Type: application/json" \
+  -d '{"username": "admin", "password": "changeme"}'
+```
+
+> Change the admin password after first login — **Admin → Users**.
+
+---
+
+## Don't have PostgreSQL?
+
+Use `docker-compose.yml` to spin up a bundled Postgres database alongside the app:
+
+```bash
+# Add POSTGRES_PASSWORD to your .env first
+echo 'POSTGRES_PASSWORD=changeme' >> .env
+
+docker compose up -d --build
+```
+
+Docker Compose automatically reads `.env` from the current directory — no extra flags needed.
+
+---
+
+## Features
+
+- **User auth** — Secure login, role-based access (admin / operator)
+- **Stock items** — SKU-based item master with units and storage location assignment
+- **Destinations** — Data Hall → Row → Rack hierarchy for handout tracking
+- **Storage locations** — Warehouse → Row → Shelf hierarchy for physical stock location
+- **Receive stock** — Record incoming stock with quantity, notes, and reference
+- **Hand out stock** — Record stock handout with picker identity and destination
+- **Transfer stock** — Move stock between warehouses with per-warehouse balance tracking
+- **Stock balances** — Live stock-on-hand view with search, per-warehouse filtering
+- **Transaction history** — Full audit trail, soft-delete with admin override
+- **Reports** — Stock on hand, movements by date/person/destination, CSV export
+- **PDF picking lists** — Generate picking list PDFs from handout transactions
+- **User management** — Admin can add, edit, and remove user accounts
+
+---
+
+## Documentation
+
+- [DEPLOYMENT.md](./DEPLOYMENT.md) — Full deployment guide (Docker, bare metal, local dev)
+- [CHANGELOG.md](./CHANGELOG.md) — Release history
