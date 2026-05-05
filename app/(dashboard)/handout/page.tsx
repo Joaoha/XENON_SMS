@@ -39,6 +39,13 @@ interface Warehouse {
   name: string
 }
 
+interface HandoutProfile {
+  id: string
+  name: string
+  description: string | null
+  items: { stockItemId: string; quantity: number }[]
+}
+
 interface SelectedItem {
   stockItemId: string
   quantity: string
@@ -57,6 +64,7 @@ export default function HandoutPage() {
   const [success, setSuccess] = useState("")
   const [lastBatchId, setLastBatchId] = useState<string | null>(null)
   const [pickers, setPickers] = useState<string[]>([])
+  const [profiles, setProfiles] = useState<HandoutProfile[]>([])
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
     { stockItemId: "", quantity: "" },
   ])
@@ -68,11 +76,13 @@ export default function HandoutPage() {
       fetch("/api/data-halls").then(safeJson),
       fetch("/api/pickers").then(safeJson),
       fetch("/api/warehouses").then(safeJson),
-    ]).then(([stockItems, halls, pickerList, wh]) => {
+      fetch("/api/handout-profiles").then(safeJson),
+    ]).then(([stockItems, halls, pickerList, wh, profileList]) => {
       if (Array.isArray(stockItems)) setItems(stockItems)
       if (Array.isArray(halls)) setDataHalls(halls)
       if (Array.isArray(pickerList)) setPickers(pickerList)
       if (Array.isArray(wh)) setWarehouses(wh)
+      if (Array.isArray(profileList)) setProfiles(profileList)
     })
   }, [])
 
@@ -97,6 +107,17 @@ export default function HandoutPage() {
 
   function addItem() {
     setSelectedItems((prev) => [...prev, { stockItemId: "", quantity: "" }])
+  }
+
+  function applyProfile(profileId: string) {
+    const profile = profiles.find((p) => p.id === profileId)
+    if (!profile) return
+    setSelectedItems(
+      profile.items.map((i) => ({
+        stockItemId: i.stockItemId,
+        quantity: String(i.quantity),
+      }))
+    )
   }
 
   function removeItem(index: number) {
@@ -264,6 +285,26 @@ export default function HandoutPage() {
       </div>
 
       <form ref={formRef} onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
+        {profiles.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Load from Profile</label>
+            <select
+              onChange={(e) => {
+                if (e.target.value) applyProfile(e.target.value)
+                e.target.value = ""
+              }}
+              className={inputCls}
+            >
+              <option value="">Select a profile to prefill items...</option>
+              {profiles.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}{p.description ? ` — ${p.description}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
         <div>
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Source Warehouse *</label>
           <select

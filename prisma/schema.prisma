@@ -46,6 +46,7 @@ model StockItem {
   shelf              Shelf?         @relation(fields: [shelfId], references: [id])
   transactions       Transaction[]
   stockBalances      StockBalance[]
+  profileItems       HandoutProfileItem[]
 }
 
 model DataHall {
@@ -133,6 +134,27 @@ model Shelf {
   stockItems     StockItem[]
 
   @@unique([warehouseRowId, name])
+}
+
+model HandoutProfile {
+  id          String               @id @default(cuid())
+  name        String               @unique
+  description String?
+  isActive    Boolean              @default(true)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  items       HandoutProfileItem[]
+}
+
+model HandoutProfileItem {
+  id        String         @id @default(cuid())
+  profileId String
+  stockItemId String
+  quantity  Int
+  profile   HandoutProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  stockItem StockItem      @relation(fields: [stockItemId], references: [id])
+
+  @@unique([profileId, stockItemId])
 }
 
 model Transaction {

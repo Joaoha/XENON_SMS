@@ -12,8 +12,8 @@ interface Transaction {
   stockItem: { sku: string; name: string; unit: string }
   user: { username: string }
   dataHall: { code: string; name: string } | null
-  row: { code: string; name: string } | null
-  rack: { code: string; name: string } | null
+  row: { name: string } | null
+  rack: { name: string } | null
 }
 
 interface StockItem {
@@ -22,17 +22,27 @@ interface StockItem {
   name: string
 }
 
+interface DataHall {
+  id: string
+  code: string
+  name: string
+}
+
 export default function ReportsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [total, setTotal] = useState(0)
   const [items, setItems] = useState<StockItem[]>([])
+  const [dataHalls, setDataHalls] = useState<DataHall[]>([])
   const [loading, setLoading] = useState(false)
-  const [filters, setFilters] = useState({ from: "", to: "", itemId: "", type: "HANDOUT" })
+  const [filters, setFilters] = useState({ from: "", to: "", itemId: "", type: "HANDOUT", dataHallId: "" })
 
   useEffect(() => {
     fetch("/api/stock-items")
       .then((r) => r.json())
       .then(setItems)
+    fetch("/api/data-halls")
+      .then((r) => r.json())
+      .then((dh) => { if (Array.isArray(dh)) setDataHalls(dh) })
   }, [])
 
   const run = useCallback(async () => {
@@ -43,6 +53,7 @@ export default function ReportsPage() {
     if (filters.type) params.set("type", filters.type)
     if (filters.from) params.set("from", filters.from)
     if (filters.to) params.set("to", filters.to)
+    if (filters.dataHallId) params.set("dataHallId", filters.dataHallId)
     params.set("limit", "1000")
     const res = await fetch(`/api/transactions?${params}`)
     const data = await res.json()
@@ -64,7 +75,8 @@ export default function ReportsPage() {
         (byPerson[t.pickedBy].items[t.stockItem.name] || 0) + t.quantity
     }
     if (t.dataHall) {
-      const key = `${t.dataHall.code}/${t.row?.code}/${t.rack?.code}`
+      const parts = [t.dataHall.code, t.row?.name, t.rack?.name].filter(Boolean)
+      const key = parts.join(" / ")
       if (!byDestination[key]) byDestination[key] = { label: key, qty: 0 }
       byDestination[key].qty += t.quantity
     }
@@ -80,6 +92,7 @@ export default function ReportsPage() {
     if (filters.itemId) params.set("itemId", filters.itemId)
     if (filters.from) params.set("from", filters.from)
     if (filters.to) params.set("to", filters.to)
+    if (filters.dataHallId) params.set("dataHallId", filters.dataHallId)
     return `/api/export?${params}`
   }
 
@@ -101,7 +114,7 @@ export default function ReportsPage() {
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-4">
         <h2 className="font-medium text-gray-700 dark:text-gray-300">Filter Transactions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <div>
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Type</label>
             <select
@@ -125,6 +138,21 @@ export default function ReportsPage() {
               {items.map((item) => (
                 <option key={item.id} value={item.id}>
                   {item.sku}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Destination</label>
+            <select
+              value={filters.dataHallId}
+              onChange={(e) => setFilters((f) => ({ ...f, dataHallId: e.target.value }))}
+              className={filterSelectCls}
+            >
+              <option value="">All destinations</option>
+              {dataHalls.map((dh) => (
+                <option key={dh.id} value={dh.id}>
+                  {dh.code} — {dh.name}
                 </option>
               ))}
             </select>

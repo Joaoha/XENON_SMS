@@ -11,10 +11,12 @@ export async function GET(req: Request) {
   const from = searchParams.get("from")
   const to = searchParams.get("to")
   const itemId = searchParams.get("itemId")
+  const dataHallId = searchParams.get("dataHallId")
 
   const where: Record<string, unknown> = { deletedAt: null }
   if (type !== "all") where.type = type
   if (itemId) where.stockItemId = itemId
+  if (dataHallId) where.dataHallId = dataHallId
   if (from || to) {
     where.createdAt = {}
     if (from) (where.createdAt as Record<string, Date>).gte = new Date(from)

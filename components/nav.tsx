@@ -20,10 +20,12 @@ const navItems = [
   { href: "/admin/stock-items", label: "Stock Items", icon: "🗂️" },
   { href: "/admin/destinations", label: "Destinations", icon: "🏢" },
   { href: "/admin/storage-locations", label: "Storage Locations", icon: "📦" },
+  { href: "/admin/handout-profiles", label: "Profiles", icon: "📋" },
 ]
 
 const adminItems = [
   { href: "/admin/users", label: "Users", icon: "👤" },
+  { href: "/admin/backups", label: "Backups", icon: "💾" },
 ]
 
 export function Nav({ username, role }: NavProps) {

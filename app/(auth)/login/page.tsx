@@ -2,11 +2,13 @@
 
 import { useState, FormEvent } from "react"
 import { signIn } from "next-auth/react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import { loginAction } from "./actions"
 
 export default function LoginPage() {
   const router = useRouter()
-  const [error, setError] = useState("")
+  const searchParams = useSearchParams()
+  const [error, setError] = useState(searchParams.get("error") ? "Invalid username or password" : "")
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -41,7 +43,7 @@ export default function LoginPage() {
             <span className="block text-lg font-medium text-gray-600 dark:text-gray-400">Stock Management System</span>
           </h1>
         </div>
-        <form className="mt-8 space-y-6 bg-white dark:bg-gray-800 p-8 rounded-lg shadow" onSubmit={handleSubmit}>
+        <form action={loginAction} className="mt-8 space-y-6 bg-white dark:bg-gray-800 p-8 rounded-lg shadow" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 dark:text-gray-300">

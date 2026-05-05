@@ -37,11 +37,18 @@ interface Warehouse {
   isActive: boolean
 }
 
+interface DataHall {
+  id: string
+  code: string
+  name: string
+}
+
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [total, setTotal] = useState(0)
   const [items, setItems] = useState<StockItem[]>([])
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  const [dataHalls, setDataHalls] = useState<DataHall[]>([])
   const [loading, setLoading] = useState(true)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [filters, setFilters] = useState({
@@ -51,6 +58,7 @@ export default function TransactionsPage() {
     from: "",
     to: "",
     warehouseId: "",
+    dataHallId: "",
   })
   const [page, setPage] = useState(1)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
@@ -63,10 +71,12 @@ export default function TransactionsPage() {
       fetch("/api/stock-items").then(safeJson),
       fetch("/api/me").then(safeJson),
       fetch("/api/warehouses").then(safeJson),
-    ]).then(([stockItems, me, wh]) => {
+      fetch("/api/data-halls").then(safeJson),
+    ]).then(([stockItems, me, wh, dh]) => {
       if (Array.isArray(stockItems)) setItems(stockItems)
       if (me?.role) setUserRole(me.role)
       if (Array.isArray(wh)) setWarehouses(wh)
+      if (Array.isArray(dh)) setDataHalls(dh)
     })
   }, [])
 
@@ -79,6 +89,7 @@ export default function TransactionsPage() {
     if (filters.from) params.set("from", filters.from)
     if (filters.to) params.set("to", filters.to)
     if (filters.warehouseId) params.set("warehouseId", filters.warehouseId)
+    if (filters.dataHallId) params.set("dataHallId", filters.dataHallId)
     params.set("page", String(page))
     params.set("limit", String(limit))
     const res = await fetch(`/api/transactions?${params}`)
@@ -226,7 +237,7 @@ export default function TransactionsPage() {
         </a>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 grid grid-cols-2 md:grid-cols-7 gap-3">
         <select
           value={filters.itemId}
           onChange={(e) => handleFilterChange("itemId", e.target.value)}
@@ -260,6 +271,19 @@ export default function TransactionsPage() {
           {warehouses.map((wh) => (
             <option key={wh.id} value={wh.id}>
               {wh.code} \u2014 {wh.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={filters.dataHallId}
+          onChange={(e) => handleFilterChange("dataHallId", e.target.value)}
+          className={filterCls}
+        >
+          <option value="">All destinations</option>
+          {dataHalls.map((dh) => (
+            <option key={dh.id} value={dh.id}>
+              {dh.code} — {dh.name}
             </option>
           ))}
         </select>
