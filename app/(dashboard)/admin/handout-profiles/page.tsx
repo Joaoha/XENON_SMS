@@ -98,6 +98,12 @@ export default function HandoutProfilesPage() {
       return
     }
 
+    const ids = validItems.map((i) => i.stockItemId)
+    if (new Set(ids).size !== ids.length) {
+      setError("Each item can only appear once in a profile.")
+      return
+    }
+
     setLoading(true)
     const payload = {
       name,
@@ -192,7 +198,9 @@ export default function HandoutProfilesPage() {
                     className={inputCls}
                   >
                     <option value="">Select item...</option>
-                    {stockItems.map((item) => (
+                    {stockItems
+                      .filter((item) => item.id === fi.stockItemId || !formItems.some((other, oi) => oi !== index && other.stockItemId === item.id))
+                      .map((item) => (
                       <option key={item.id} value={item.id}>
                         [{item.sku}] {item.name}
                       </option>

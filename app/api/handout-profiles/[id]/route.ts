@@ -52,6 +52,14 @@ export async function PUT(req: Request, ctx: RouteContext) {
     }
   }
 
+  const stockItemIds = items.map((i: { stockItemId: string }) => i.stockItemId)
+  if (new Set(stockItemIds).size !== stockItemIds.length) {
+    return NextResponse.json(
+      { error: "Duplicate items are not allowed in the same profile" },
+      { status: 400 }
+    )
+  }
+
   const existing = await prisma.handoutProfile.findUnique({ where: { id } })
   if (!existing || !existing.isActive) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 })

@@ -43,6 +43,14 @@ export async function POST(req: Request) {
     }
   }
 
+  const stockItemIds = items.map((i: { stockItemId: string }) => i.stockItemId)
+  if (new Set(stockItemIds).size !== stockItemIds.length) {
+    return NextResponse.json(
+      { error: "Duplicate items are not allowed in the same profile" },
+      { status: 400 }
+    )
+  }
+
   const existing = await prisma.handoutProfile.findUnique({ where: { name } })
   if (existing && existing.isActive) {
     return NextResponse.json({ error: "A profile with this name already exists" }, { status: 409 })
