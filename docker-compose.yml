@@ -33,9 +33,12 @@ services:
       AUTH_TRUST_HOST: "true"
       NEXTAUTH_URL: "http://localhost:${PORT:-3000}"
       NODE_ENV: production
+    volumes:
+      - backups:/app/backups
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   db_data:
+  backups:

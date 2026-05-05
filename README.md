@@ -124,6 +124,29 @@ Docker Compose automatically reads `.env` from the current directory — no extr
 - **Reports** — Stock on hand, movements by date/person/destination, CSV export
 - **PDF picking lists** — Generate picking list PDFs from handout transactions
 - **User management** — Admin can add, edit, and remove user accounts
+- **Transaction backups** — Admin can trigger daily/weekly/monthly/full CSV backups with JSON sidecar metadata
+
+---
+
+## Backups
+
+XENON SMS includes a built-in transaction backup system accessible from **Admin → Backups**.
+
+- **Trigger backups** — run daily, weekly, monthly, or full backups on demand
+- **Download** — download CSV and JSON sidecar files from the admin UI
+- **Persistent storage** — backup files are stored in a Docker volume (`backups`) that persists across container rebuilds
+
+Backups are written to `/app/backups` inside the container. The Docker Compose setup mounts a named volume so files survive container recreation. To access backup files directly:
+
+```bash
+docker compose exec app ls /app/backups/daily/
+```
+
+To copy a backup to your host:
+
+```bash
+docker compose cp app:/app/backups ./local-backups
+```
 
 ---
 
