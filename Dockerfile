@@ -43,6 +43,9 @@ COPY --from=builder /app/prisma            ./prisma
 COPY --from=builder /app/prisma.config.ts  ./prisma.config.ts
 COPY --from=builder /app/node_modules      ./node_modules
 
+# Writable directory for backup CSV/JSON files
+RUN mkdir -p /app/backups && chown nextjs:nodejs /app/backups
+
 USER nextjs
 
 EXPOSE 3000
