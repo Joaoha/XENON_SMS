@@ -4,6 +4,7 @@ import { useState, FormEvent, Suspense } from "react"
 import { signIn } from "next-auth/react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { loginAction } from "./actions"
+import { APP_VERSION } from "@/lib/app-version"
 
 function LoginForm() {
   const router = useRouter()
@@ -88,6 +89,7 @@ export default function LoginPage() {
           <h1 className="text-center">
             <span className="block text-3xl font-bold text-gray-900 dark:text-gray-100">XENON</span>
             <span className="block text-lg font-medium text-gray-600 dark:text-gray-400">Stock Management System</span>
+            <span className="block mt-1 text-xs text-gray-400 dark:text-gray-500">v{APP_VERSION}</span>
           </h1>
         </div>
         <Suspense>

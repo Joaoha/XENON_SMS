@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
 import { ThemeToggle } from "./theme-toggle"
+import { APP_VERSION } from "@/lib/app-version"
 
 interface NavProps {
   username: string
@@ -39,6 +40,7 @@ export function Nav({ username, role }: NavProps) {
             <span className="flex flex-col leading-tight">
               <span className="font-bold text-lg text-blue-700 dark:text-blue-400">XENON</span>
               <span className="text-xs font-medium text-blue-500 dark:text-blue-300">Stock Management System</span>
+              <span className="text-[10px] text-gray-400 dark:text-gray-500">v{APP_VERSION}</span>
             </span>
             <div className="hidden md:flex items-center gap-1">
               {navItems.map((item) => (
