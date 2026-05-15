@@ -25,6 +25,11 @@ export async function GET(req: Request) {
           : {}),
       },
       orderBy: { name: "asc" },
+      include: {
+        warehouse: { select: { id: true, name: true, code: true } },
+        warehouseRow: { select: { id: true, name: true } },
+        shelf: { select: { id: true, name: true } },
+      },
     })
 
     const itemIds = items.map((i) => i.id)
@@ -79,12 +84,19 @@ export async function GET(req: Request) {
         ? byWarehouse.reduce((sum, w) => sum + w.balance, 0)
         : tx.balance
 
+      const locationParts = [
+        item.warehouse?.code,
+        item.warehouseRow?.name,
+        item.shelf?.name,
+      ].filter(Boolean)
+
       return {
         id: item.id,
         sku: item.sku,
         name: item.name,
         unit: item.unit,
         description: item.description,
+        location: locationParts.length > 0 ? locationParts.join(" / ") : null,
         balance: totalBalance,
         received: tx.received,
         handedOut: tx.handedOut,

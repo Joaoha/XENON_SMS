@@ -16,6 +16,7 @@ interface Balance {
   name: string
   unit: string
   description: string | null
+  location: string | null
   balance: number
   received: number
   handedOut: number
@@ -141,6 +142,9 @@ export default function DashboardPage() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   SKU
                 </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Location
+                </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Received
                 </th>
@@ -175,6 +179,7 @@ export default function DashboardPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{item.sku}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">{item.location || "—"}</td>
                     <td className="px-6 py-4 text-sm text-right text-green-700 dark:text-green-400">
                       +{item.received} {item.unit}
                     </td>
@@ -197,7 +202,7 @@ export default function DashboardPage() {
                   </tr>
                   {expandedItems.has(item.id) && item.byWarehouse.map((wh) => (
                     <tr key={`${item.id}-${wh.warehouseId}`} className="bg-gray-50/50 dark:bg-gray-900/50">
-                      <td className="px-6 py-2 pl-14" colSpan={4}>
+                      <td className="px-6 py-2 pl-14" colSpan={5}>
                         <span className="text-xs text-gray-500 dark:text-gray-400">
                           {wh.warehouseCode} — {wh.warehouseName}
                         </span>
