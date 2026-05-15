@@ -39,7 +39,7 @@ export function Nav({ username, role }: NavProps) {
           <div className="flex items-center gap-6">
             <span className="flex flex-col leading-tight">
               <span className="font-bold text-lg text-blue-700 dark:text-blue-400">XENON</span>
-              <span className="text-xs font-medium text-blue-500 dark:text-blue-300">Stock Management System</span>
+              <span className="text-xs font-medium text-blue-500 dark:text-blue-300">SMS</span>
               <span className="text-[10px] text-gray-400 dark:text-gray-500">v{APP_VERSION}</span>
             </span>
             <div className="hidden md:flex items-center gap-1">
