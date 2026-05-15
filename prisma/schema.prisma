@@ -27,6 +27,7 @@ model User {
   updatedAt           DateTime      @updatedAt
   transactions        Transaction[]
   deletedTransactions Transaction[] @relation("DeletedTransactions")
+  importLogs          ImportLog[]
 }
 
 model StockItem {
@@ -184,4 +185,18 @@ model Transaction {
   sourceWarehouse      Warehouse? @relation("SourceWarehouse", fields: [sourceWarehouseId], references: [id])
   destinationWarehouse Warehouse? @relation("DestinationWarehouse", fields: [destinationWarehouseId], references: [id])
   deletedByUser        User?      @relation("DeletedTransactions", fields: [deletedBy], references: [id])
+}
+
+model ImportLog {
+  id           String   @id @default(cuid())
+  userId       String
+  fileName     String
+  entityType   String
+  created      Int      @default(0)
+  skipped      Int      @default(0)
+  failed       Int      @default(0)
+  errors       String?
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }

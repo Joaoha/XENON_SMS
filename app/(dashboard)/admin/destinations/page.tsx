@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { DestinationImport } from "@/components/destination-import"
 
 interface DataHall {
   id: string
@@ -260,6 +261,8 @@ export default function DestinationsPage() {
           </button>
         </div>
       </div>
+
+      <DestinationImport onImported={loadHalls} />
 
       {/* Hierarchy view */}
       {!loading && (
