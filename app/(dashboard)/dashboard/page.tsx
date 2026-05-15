@@ -3,10 +3,14 @@
 import { useState, useEffect, useCallback, Fragment } from "react"
 import Link from "next/link"
 
-interface WarehouseBalance {
+interface LocationBalance {
   warehouseId: string
   warehouseName: string
   warehouseCode: string
+  warehouseRowId: string | null
+  warehouseRowName: string | null
+  shelfId: string | null
+  shelfName: string | null
   balance: number
 }
 
@@ -20,7 +24,7 @@ interface Balance {
   balance: number
   received: number
   handedOut: number
-  byWarehouse: WarehouseBalance[]
+  byLocation: LocationBalance[]
 }
 
 interface Warehouse {
@@ -160,12 +164,12 @@ export default function DashboardPage() {
               {balances.map((item) => (
                 <Fragment key={item.id}>
                   <tr
-                    className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${item.byWarehouse.length > 0 ? "cursor-pointer" : ""}`}
-                    onClick={() => item.byWarehouse.length > 0 && toggleExpand(item.id)}
+                    className={`hover:bg-gray-50 dark:hover:bg-gray-700 ${item.byLocation.length > 0 ? "cursor-pointer" : ""}`}
+                    onClick={() => item.byLocation.length > 0 && toggleExpand(item.id)}
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
-                        {item.byWarehouse.length > 0 && (
+                        {item.byLocation.length > 0 && (
                           <span className="text-gray-400 dark:text-gray-500 text-xs">
                             {expandedItems.has(item.id) ? "\u25BC" : "\u25B6"}
                           </span>
@@ -200,26 +204,29 @@ export default function DashboardPage() {
                       </span>
                     </td>
                   </tr>
-                  {expandedItems.has(item.id) && item.byWarehouse.map((wh) => (
-                    <tr key={`${item.id}-${wh.warehouseId}`} className="bg-gray-50/50 dark:bg-gray-900/50">
-                      <td className="px-6 py-2 pl-14" colSpan={5}>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
-                          {wh.warehouseCode} — {wh.warehouseName}
-                        </span>
-                      </td>
-                      <td className="px-6 py-2 text-right">
-                        <span className={`text-xs font-medium ${
-                          wh.balance < 0
-                            ? "text-red-600 dark:text-red-400"
-                            : wh.balance === 0
-                            ? "text-gray-400 dark:text-gray-500"
-                            : "text-gray-700 dark:text-gray-300"
-                        }`}>
-                          {wh.balance} {item.unit}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
+                  {expandedItems.has(item.id) && item.byLocation.map((loc, idx) => {
+                    const path = [loc.warehouseCode, loc.warehouseRowName, loc.shelfName].filter(Boolean).join(" / ")
+                    return (
+                      <tr key={`${item.id}-loc-${idx}`} className="bg-gray-50/50 dark:bg-gray-900/50">
+                        <td className="px-6 py-2 pl-14" colSpan={5}>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            {path}
+                          </span>
+                        </td>
+                        <td className="px-6 py-2 text-right">
+                          <span className={`text-xs font-medium ${
+                            loc.balance < 0
+                              ? "text-red-600 dark:text-red-400"
+                              : loc.balance === 0
+                              ? "text-gray-400 dark:text-gray-500"
+                              : "text-gray-700 dark:text-gray-300"
+                          }`}>
+                            {loc.balance} {item.unit}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </Fragment>
               ))}
             </tbody>
