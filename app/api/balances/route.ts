@@ -154,6 +154,37 @@ export async function GET(req: Request) {
       const tx = txByItem.get(item.id) || { received: 0, handedOut: 0, balance: 0 }
       const locs = locationsByItem.get(item.id)
 
+      if (locs) {
+        const whGroups = new Map<string, { bare: string | null; shelfKeys: string[] }>()
+        for (const [key] of locs) {
+          const [whId, rowId, shelfId] = key.split(":")
+          let g = whGroups.get(whId)
+          if (!g) { g = { bare: null, shelfKeys: [] }; whGroups.set(whId, g) }
+          if (!rowId && !shelfId) g.bare = key
+          else g.shelfKeys.push(key)
+        }
+        for (const g of whGroups.values()) {
+          if (g.bare && g.shelfKeys.length > 0) {
+            const bareEntry = locs.get(g.bare)!
+            if (bareEntry.balance !== 0) {
+              const shelfEntries = g.shelfKeys.map((k) => locs.get(k)!).filter((e) => e.balance > 0)
+              const totalPositive = shelfEntries.reduce((s, e) => s + e.balance, 0)
+              if (totalPositive > 0) {
+                let remaining = bareEntry.balance
+                for (let i = 0; i < shelfEntries.length; i++) {
+                  const share = i === shelfEntries.length - 1
+                    ? remaining
+                    : Math.round((bareEntry.balance * shelfEntries[i].balance) / totalPositive)
+                  shelfEntries[i].balance += share
+                  remaining -= share
+                }
+                bareEntry.balance = 0
+              }
+            }
+          }
+        }
+      }
+
       const byLocation: LocationBalance[] = []
       if (locs) {
         for (const [key, entry] of locs) {
