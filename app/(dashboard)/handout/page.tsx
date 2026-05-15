@@ -114,7 +114,7 @@ export default function HandoutPage() {
     if (locs && locs.length > 0) {
       return locs.map((l) => {
         const parts = [l.warehouseCode, l.warehouseRowName, l.shelfName].filter(Boolean)
-        return parts.length > 0 ? `${parts.join(" / ")} (${l.balance})` : null
+        return parts.join(" / ")
       }).filter(Boolean).join("; ")
     }
     const parts = [
@@ -123,6 +123,27 @@ export default function HandoutPage() {
       item.shelf?.name,
     ].filter(Boolean)
     return parts.length > 0 ? parts.join(" -> ") : null
+  }
+
+  function formatPickingLocation(item: StockItem | null, handoutQty: number): string | null {
+    if (!item) return null
+    const locs = balanceMap.get(item.id)
+    if (locs && locs.length > 0) {
+      const positiveLocs = locs.filter((l) => l.balance > 0)
+      if (positiveLocs.length === 0) return formatStorageLocation(item)
+      const totalAvailable = positiveLocs.reduce((s, l) => s + l.balance, 0)
+      let remaining = handoutQty
+      return positiveLocs.map((l, i) => {
+        const parts = [l.warehouseCode, l.warehouseRowName, l.shelfName].filter(Boolean)
+        const take = i === positiveLocs.length - 1
+          ? remaining
+          : Math.round((handoutQty * l.balance) / totalAvailable)
+        remaining -= take
+        if (take <= 0) return null
+        return `${parts.join(" / ")}: ${take}`
+      }).filter(Boolean).join("; ")
+    }
+    return formatStorageLocation(item)
   }
 
   const rows = dataHalls.find((h) => h.id === selectedHall)?.rows || []
@@ -184,12 +205,13 @@ export default function HandoutPage() {
       sourceWarehouse: sourceWh ? `${sourceWh.code} — ${sourceWh.name}` : undefined,
       items: validItems.map((si) => {
         const item = items.find((i) => i.id === si.stockItemId)
+        const qty = parseInt(si.quantity) || 0
         return {
           sku: item?.sku || "-",
           name: item?.name || "-",
-          quantity: parseInt(si.quantity) || 0,
+          quantity: qty,
           unit: item?.unit || "units",
-          storageLocation: formatStorageLocation(item || null),
+          storageLocation: formatPickingLocation(item || null, qty),
         }
       }),
     }
@@ -299,10 +321,25 @@ export default function HandoutPage() {
         const locs = locMap.get(t.stockItem.id)
         let storageLocation: string | null = null
         if (locs && locs.length > 0) {
-          storageLocation = locs.map((l) => {
-            const parts = [l.warehouseCode, l.warehouseRowName, l.shelfName].filter(Boolean)
-            return parts.length > 0 ? `${parts.join(" / ")} (${l.balance})` : null
-          }).filter(Boolean).join("; ")
+          const positiveLocs = locs.filter((l) => l.balance > 0)
+          const totalAvailable = positiveLocs.reduce((s, l) => s + l.balance, 0)
+          if (positiveLocs.length > 0 && totalAvailable > 0) {
+            let remaining = t.quantity
+            storageLocation = positiveLocs.map((l, i) => {
+              const parts = [l.warehouseCode, l.warehouseRowName, l.shelfName].filter(Boolean)
+              const take = i === positiveLocs.length - 1
+                ? remaining
+                : Math.round((t.quantity * l.balance) / totalAvailable)
+              remaining -= take
+              if (take <= 0) return null
+              return `${parts.join(" / ")}: ${take}`
+            }).filter(Boolean).join("; ")
+          } else {
+            storageLocation = locs.map((l) => {
+              const parts = [l.warehouseCode, l.warehouseRowName, l.shelfName].filter(Boolean)
+              return parts.join(" / ")
+            }).filter(Boolean).join("; ")
+          }
         } else {
           const loc = [t.stockItem.warehouse?.name, t.stockItem.warehouseRow?.name, t.stockItem.shelf?.name].filter(Boolean)
           storageLocation = loc.length > 0 ? loc.join(" -> ") : null
