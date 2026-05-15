@@ -60,6 +60,10 @@ export async function GET(req: Request) {
         rack: { select: { id: true, name: true } },
         sourceWarehouse: { select: { id: true, name: true, code: true } },
         destinationWarehouse: { select: { id: true, name: true, code: true } },
+        sourceWarehouseRow: { select: { id: true, name: true } },
+        sourceShelf: { select: { id: true, name: true } },
+        destinationWarehouseRow: { select: { id: true, name: true } },
+        destinationShelf: { select: { id: true, name: true } },
         deletedByUser: { select: { id: true, username: true } },
       },
     })

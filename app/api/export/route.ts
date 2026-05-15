@@ -36,6 +36,12 @@ export async function GET(req: Request) {
       dataHall: { select: { code: true, name: true } },
       row: { select: { name: true } },
       rack: { select: { name: true } },
+      sourceWarehouse: { select: { code: true, name: true } },
+      destinationWarehouse: { select: { code: true, name: true } },
+      sourceWarehouseRow: { select: { name: true } },
+      sourceShelf: { select: { name: true } },
+      destinationWarehouseRow: { select: { name: true } },
+      destinationShelf: { select: { name: true } },
     },
   })
 
@@ -51,6 +57,12 @@ export async function GET(req: Request) {
     "Data Hall",
     "Row",
     "Rack",
+    "Source Warehouse",
+    "Source Row",
+    "Source Shelf",
+    "Dest Warehouse",
+    "Dest Row",
+    "Dest Shelf",
     "Reference",
     "Notes",
   ]
@@ -67,6 +79,12 @@ export async function GET(req: Request) {
     t.dataHall?.code || "",
     t.row?.name || "",
     t.rack?.name || "",
+    t.sourceWarehouse?.code || "",
+    t.sourceWarehouseRow?.name || "",
+    t.sourceShelf?.name || "",
+    t.destinationWarehouse?.code || "",
+    t.destinationWarehouseRow?.name || "",
+    t.destinationShelf?.name || "",
     t.reference || "",
     t.notes || "",
   ])

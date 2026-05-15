@@ -121,6 +121,8 @@ model WarehouseRow {
   warehouse   Warehouse   @relation(fields: [warehouseId], references: [id])
   shelves     Shelf[]
   stockItems  StockItem[]
+  sourceTransactions      Transaction[] @relation("SourceWarehouseRow")
+  destinationTransactions Transaction[] @relation("DestinationWarehouseRow")
 
   @@unique([warehouseId, name])
 }
@@ -133,6 +135,8 @@ model Shelf {
   createdAt      DateTime     @default(now())
   warehouseRow   WarehouseRow @relation(fields: [warehouseRowId], references: [id])
   stockItems     StockItem[]
+  sourceTransactions      Transaction[] @relation("SourceShelf")
+  destinationTransactions Transaction[] @relation("DestinationShelf")
 
   @@unique([warehouseRowId, name])
 }
@@ -159,32 +163,40 @@ model HandoutProfileItem {
 }
 
 model Transaction {
-  id                     String          @id @default(cuid())
-  type                   TransactionType
-  stockItemId            String
-  quantity               Int
-  userId                 String
-  pickedBy               String?
-  dataHallId             String?
-  rowId                  String?
-  rackId                 String?
-  sourceWarehouseId      String?
-  destinationWarehouseId String?
-  notes                  String?
-  reference              String?
-  batchId                String?
-  createdAt              DateTime        @default(now())
-  deletedAt              DateTime?
-  deletedBy              String?
+  id                          String          @id @default(cuid())
+  type                        TransactionType
+  stockItemId                 String
+  quantity                    Int
+  userId                      String
+  pickedBy                    String?
+  dataHallId                  String?
+  rowId                       String?
+  rackId                      String?
+  sourceWarehouseId           String?
+  destinationWarehouseId      String?
+  sourceWarehouseRowId        String?
+  sourceShelfId               String?
+  destinationWarehouseRowId   String?
+  destinationShelfId          String?
+  notes                       String?
+  reference                   String?
+  batchId                     String?
+  createdAt                   DateTime        @default(now())
+  deletedAt                   DateTime?
+  deletedBy                   String?
 
-  stockItem            StockItem  @relation(fields: [stockItemId], references: [id])
-  user                 User       @relation(fields: [userId], references: [id])
-  dataHall             DataHall?  @relation(fields: [dataHallId], references: [id])
-  row                  Row?       @relation(fields: [rowId], references: [id])
-  rack                 Rack?      @relation(fields: [rackId], references: [id])
-  sourceWarehouse      Warehouse? @relation("SourceWarehouse", fields: [sourceWarehouseId], references: [id])
-  destinationWarehouse Warehouse? @relation("DestinationWarehouse", fields: [destinationWarehouseId], references: [id])
-  deletedByUser        User?      @relation("DeletedTransactions", fields: [deletedBy], references: [id])
+  stockItem                StockItem     @relation(fields: [stockItemId], references: [id])
+  user                     User          @relation(fields: [userId], references: [id])
+  dataHall                 DataHall?     @relation(fields: [dataHallId], references: [id])
+  row                      Row?          @relation(fields: [rowId], references: [id])
+  rack                     Rack?         @relation(fields: [rackId], references: [id])
+  sourceWarehouse          Warehouse?    @relation("SourceWarehouse", fields: [sourceWarehouseId], references: [id])
+  destinationWarehouse     Warehouse?    @relation("DestinationWarehouse", fields: [destinationWarehouseId], references: [id])
+  sourceWarehouseRow       WarehouseRow? @relation("SourceWarehouseRow", fields: [sourceWarehouseRowId], references: [id])
+  sourceShelf              Shelf?        @relation("SourceShelf", fields: [sourceShelfId], references: [id])
+  destinationWarehouseRow  WarehouseRow? @relation("DestinationWarehouseRow", fields: [destinationWarehouseRowId], references: [id])
+  destinationShelf         Shelf?        @relation("DestinationShelf", fields: [destinationShelfId], references: [id])
+  deletedByUser            User?         @relation("DeletedTransactions", fields: [deletedBy], references: [id])
 }
 
 model ImportLog {

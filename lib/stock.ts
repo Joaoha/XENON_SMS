@@ -64,6 +64,10 @@ export interface TransferItem {
   quantity: number
   sourceWarehouseId: string
   destinationWarehouseId: string
+  sourceWarehouseRowId?: string
+  sourceShelfId?: string
+  destinationWarehouseRowId?: string
+  destinationShelfId?: string
 }
 
 export interface TransferInput {
@@ -96,7 +100,11 @@ export function validateTransferInput(body: TransferInput): ValidationResult {
     }
 
     if (item.sourceWarehouseId === item.destinationWarehouseId) {
-      return { valid: false, error: `${prefix}source and destination warehouses must be different` }
+      const sameRow = item.sourceWarehouseRowId === item.destinationWarehouseRowId
+      const sameShelf = item.sourceShelfId === item.destinationShelfId
+      if (sameRow && sameShelf) {
+        return { valid: false, error: `${prefix}source and destination locations must be different` }
+      }
     }
   }
 

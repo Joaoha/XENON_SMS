@@ -21,6 +21,10 @@ interface Transaction {
   rack: { id: string; name: string } | null
   sourceWarehouse: { id: string; name: string; code: string } | null
   destinationWarehouse: { id: string; name: string; code: string } | null
+  sourceWarehouseRow: { id: string; name: string } | null
+  sourceShelf: { id: string; name: string } | null
+  destinationWarehouseRow: { id: string; name: string } | null
+  destinationShelf: { id: string; name: string } | null
   deletedByUser: { id: string; username: string } | null
 }
 
@@ -159,10 +163,22 @@ export default function TransactionsPage() {
     }
   }
 
+  function formatLocationDetail(
+    wh: { code: string } | null,
+    row: { name: string } | null,
+    shelf: { name: string } | null,
+  ): string {
+    if (!wh) return "?"
+    const parts = [wh.code]
+    if (row) parts.push(row.name)
+    if (shelf) parts.push(shelf.name)
+    return parts.join("/")
+  }
+
   function formatDestination(t: Transaction): string {
     if (t.type === "TRANSFER") {
-      const src = t.sourceWarehouse ? `${t.sourceWarehouse.code}` : "?"
-      const dst = t.destinationWarehouse ? `${t.destinationWarehouse.code}` : "?"
+      const src = formatLocationDetail(t.sourceWarehouse, t.sourceWarehouseRow, t.sourceShelf)
+      const dst = formatLocationDetail(t.destinationWarehouse, t.destinationWarehouseRow, t.destinationShelf)
       return `${src} \u2192 ${dst}`
     }
     if (t.type === "RECEIVE" && t.destinationWarehouse) {

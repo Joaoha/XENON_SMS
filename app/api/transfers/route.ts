@@ -22,27 +22,53 @@ export async function POST(req: Request) {
       quantity: number
       sourceWarehouseId: string
       destinationWarehouseId: string
+      sourceWarehouseRowId?: string
+      sourceShelfId?: string
+      destinationWarehouseRowId?: string
+      destinationShelfId?: string
     }[]
 
     const warehouseIds = new Set<string>()
     const stockItemIds = new Set<string>()
+    const rowIds = new Set<string>()
+    const shelfIds = new Set<string>()
     for (const item of items) {
       warehouseIds.add(item.sourceWarehouseId)
       warehouseIds.add(item.destinationWarehouseId)
       stockItemIds.add(item.stockItemId)
+      if (item.sourceWarehouseRowId) rowIds.add(item.sourceWarehouseRowId)
+      if (item.destinationWarehouseRowId) rowIds.add(item.destinationWarehouseRowId)
+      if (item.sourceShelfId) shelfIds.add(item.sourceShelfId)
+      if (item.destinationShelfId) shelfIds.add(item.destinationShelfId)
     }
 
-    const warehouses = await prisma.warehouse.findMany({
-      where: { id: { in: [...warehouseIds] } },
-      select: { id: true, name: true, isActive: true },
-    })
-    const stockItems = await prisma.stockItem.findMany({
-      where: { id: { in: [...stockItemIds] } },
-      select: { id: true, name: true, sku: true, isActive: true },
-    })
+    const [warehouses, stockItemsList, rows, shelves] = await Promise.all([
+      prisma.warehouse.findMany({
+        where: { id: { in: [...warehouseIds] } },
+        select: { id: true, name: true, isActive: true },
+      }),
+      prisma.stockItem.findMany({
+        where: { id: { in: [...stockItemIds] } },
+        select: { id: true, name: true, sku: true, isActive: true },
+      }),
+      rowIds.size > 0
+        ? prisma.warehouseRow.findMany({
+            where: { id: { in: [...rowIds] } },
+            select: { id: true, warehouseId: true, name: true, isActive: true },
+          })
+        : Promise.resolve([]),
+      shelfIds.size > 0
+        ? prisma.shelf.findMany({
+            where: { id: { in: [...shelfIds] } },
+            select: { id: true, warehouseRowId: true, name: true, isActive: true },
+          })
+        : Promise.resolve([]),
+    ])
 
     const warehouseMap = new Map(warehouses.map((w) => [w.id, w]))
-    const stockItemMap = new Map(stockItems.map((s) => [s.id, s]))
+    const stockItemMap = new Map(stockItemsList.map((s) => [s.id, s]))
+    const rowMap = new Map(rows.map((r) => [r.id, r]))
+    const shelfMap = new Map(shelves.map((s) => [s.id, s]))
 
     for (const item of items) {
       const stockItem = stockItemMap.get(item.stockItemId)
@@ -67,6 +93,27 @@ export async function POST(req: Request) {
       }
       if (!dstWh.isActive) {
         return NextResponse.json({ error: `Destination warehouse ${dstWh.name} is inactive` }, { status: 400 })
+      }
+
+      if (item.sourceWarehouseRowId) {
+        const row = rowMap.get(item.sourceWarehouseRowId)
+        if (!row) return NextResponse.json({ error: "Source row not found" }, { status: 400 })
+        if (row.warehouseId !== item.sourceWarehouseId) return NextResponse.json({ error: "Source row does not belong to source warehouse" }, { status: 400 })
+      }
+      if (item.sourceShelfId) {
+        const shelf = shelfMap.get(item.sourceShelfId)
+        if (!shelf) return NextResponse.json({ error: "Source shelf not found" }, { status: 400 })
+        if (item.sourceWarehouseRowId && shelf.warehouseRowId !== item.sourceWarehouseRowId) return NextResponse.json({ error: "Source shelf does not belong to source row" }, { status: 400 })
+      }
+      if (item.destinationWarehouseRowId) {
+        const row = rowMap.get(item.destinationWarehouseRowId)
+        if (!row) return NextResponse.json({ error: "Destination row not found" }, { status: 400 })
+        if (row.warehouseId !== item.destinationWarehouseId) return NextResponse.json({ error: "Destination row does not belong to destination warehouse" }, { status: 400 })
+      }
+      if (item.destinationShelfId) {
+        const shelf = shelfMap.get(item.destinationShelfId)
+        if (!shelf) return NextResponse.json({ error: "Destination shelf not found" }, { status: 400 })
+        if (item.destinationWarehouseRowId && shelf.warehouseRowId !== item.destinationWarehouseRowId) return NextResponse.json({ error: "Destination shelf does not belong to destination row" }, { status: 400 })
       }
     }
 
@@ -134,6 +181,10 @@ export async function POST(req: Request) {
             userId,
             sourceWarehouseId: item.sourceWarehouseId,
             destinationWarehouseId: item.destinationWarehouseId,
+            sourceWarehouseRowId: item.sourceWarehouseRowId || null,
+            sourceShelfId: item.sourceShelfId || null,
+            destinationWarehouseRowId: item.destinationWarehouseRowId || null,
+            destinationShelfId: item.destinationShelfId || null,
             notes: notes || null,
             reference: reference || null,
             batchId,
@@ -143,6 +194,10 @@ export async function POST(req: Request) {
             user: { select: { id: true, username: true } },
             sourceWarehouse: { select: { id: true, name: true, code: true } },
             destinationWarehouse: { select: { id: true, name: true, code: true } },
+            sourceWarehouseRow: { select: { id: true, name: true } },
+            sourceShelf: { select: { id: true, name: true } },
+            destinationWarehouseRow: { select: { id: true, name: true } },
+            destinationShelf: { select: { id: true, name: true } },
           },
         })
 

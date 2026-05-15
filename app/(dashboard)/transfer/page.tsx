@@ -10,11 +10,23 @@ interface StockItem {
   unit: string
 }
 
+interface WarehouseShelf {
+  id: string
+  name: string
+}
+
+interface WarehouseRowData {
+  id: string
+  name: string
+  shelves: WarehouseShelf[]
+}
+
 interface Warehouse {
   id: string
   code: string
   name: string
   isActive: boolean
+  rows: WarehouseRowData[]
 }
 
 interface WarehouseBalance {
@@ -37,6 +49,10 @@ interface TransferItem {
   quantity: string
   sourceWarehouseId: string
   destinationWarehouseId: string
+  sourceWarehouseRowId: string
+  sourceShelfId: string
+  destinationWarehouseRowId: string
+  destinationShelfId: string
 }
 
 export default function TransferPage() {
@@ -48,7 +64,7 @@ export default function TransferPage() {
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
   const [transferItems, setTransferItems] = useState<TransferItem[]>([
-    { stockItemId: "", quantity: "", sourceWarehouseId: "", destinationWarehouseId: "" },
+    { stockItemId: "", quantity: "", sourceWarehouseId: "", destinationWarehouseId: "", sourceWarehouseRowId: "", sourceShelfId: "", destinationWarehouseRowId: "", destinationShelfId: "" },
   ])
 
   useEffect(() => {
@@ -74,14 +90,32 @@ export default function TransferPage() {
 
   function updateItem(index: number, field: keyof TransferItem, value: string) {
     setTransferItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+      prev.map((item, i) => {
+        if (i !== index) return item
+        const updated = { ...item, [field]: value }
+        if (field === "sourceWarehouseId") {
+          updated.sourceWarehouseRowId = ""
+          updated.sourceShelfId = ""
+        }
+        if (field === "sourceWarehouseRowId") {
+          updated.sourceShelfId = ""
+        }
+        if (field === "destinationWarehouseId") {
+          updated.destinationWarehouseRowId = ""
+          updated.destinationShelfId = ""
+        }
+        if (field === "destinationWarehouseRowId") {
+          updated.destinationShelfId = ""
+        }
+        return updated
+      })
     )
   }
 
   function addItem() {
     setTransferItems((prev) => [
       ...prev,
-      { stockItemId: "", quantity: "", sourceWarehouseId: "", destinationWarehouseId: "" },
+      { stockItemId: "", quantity: "", sourceWarehouseId: "", destinationWarehouseId: "", sourceWarehouseRowId: "", sourceShelfId: "", destinationWarehouseRowId: "", destinationShelfId: "" },
     ])
   }
 
@@ -104,9 +138,13 @@ export default function TransferPage() {
 
     for (const ti of validItems) {
       if (ti.sourceWarehouseId === ti.destinationWarehouseId) {
-        const item = items.find((i) => i.id === ti.stockItemId)
-        setError(`${item?.name || "Item"}: source and destination warehouse must be different.`)
-        return
+        const sameRow = ti.sourceWarehouseRowId === ti.destinationWarehouseRowId
+        const sameShelf = ti.sourceShelfId === ti.destinationShelfId
+        if (sameRow && sameShelf) {
+          const item = items.find((i) => i.id === ti.stockItemId)
+          setError(`${item?.name || "Item"}: source and destination locations must be different.`)
+          return
+        }
       }
     }
 
@@ -118,6 +156,10 @@ export default function TransferPage() {
         quantity: parseInt(ti.quantity),
         sourceWarehouseId: ti.sourceWarehouseId,
         destinationWarehouseId: ti.destinationWarehouseId,
+        sourceWarehouseRowId: ti.sourceWarehouseRowId || undefined,
+        sourceShelfId: ti.sourceShelfId || undefined,
+        destinationWarehouseRowId: ti.destinationWarehouseRowId || undefined,
+        destinationShelfId: ti.destinationShelfId || undefined,
       })),
       notes: (form.elements.namedItem("notes") as HTMLTextAreaElement).value,
       reference: (form.elements.namedItem("reference") as HTMLInputElement).value,
@@ -138,7 +180,7 @@ export default function TransferPage() {
     } else {
       setSuccess("Stock transfer recorded successfully!")
       setTransferItems([
-        { stockItemId: "", quantity: "", sourceWarehouseId: "", destinationWarehouseId: "" },
+        { stockItemId: "", quantity: "", sourceWarehouseId: "", destinationWarehouseId: "", sourceWarehouseRowId: "", sourceShelfId: "", destinationWarehouseRowId: "", destinationShelfId: "" },
       ])
       form.reset()
       const bal = await fetch("/api/balances").then((r) => r.json()).catch(() => null)
@@ -152,7 +194,7 @@ export default function TransferPage() {
     <div className="max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Transfer Stock</h1>
-        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Move stock between warehouses.</p>
+        <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">Move stock between warehouses or between rows/shelves within the same warehouse.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 space-y-4">
@@ -207,7 +249,7 @@ export default function TransferPage() {
                   )}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
+                  <div className="space-y-1">
                     {index === 0 && (
                       <label className="block text-xs text-gray-500 dark:text-gray-400">From Warehouse</label>
                     )}
@@ -224,8 +266,40 @@ export default function TransferPage() {
                         </option>
                       ))}
                     </select>
+                    {ti.sourceWarehouseId && (() => {
+                      const srcWh = warehouses.find((w) => w.id === ti.sourceWarehouseId)
+                      const srcRows = srcWh?.rows ?? []
+                      const srcRow = srcRows.find((r) => r.id === ti.sourceWarehouseRowId)
+                      const srcShelves = srcRow?.shelves ?? []
+                      return srcRows.length > 0 ? (
+                        <div className="flex gap-1">
+                          <select
+                            value={ti.sourceWarehouseRowId}
+                            onChange={(e) => updateItem(index, "sourceWarehouseRowId", e.target.value)}
+                            className={`${inputCls} text-xs`}
+                          >
+                            <option value="">Row (optional)</option>
+                            {srcRows.map((r) => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                          </select>
+                          {ti.sourceWarehouseRowId && srcShelves.length > 0 && (
+                            <select
+                              value={ti.sourceShelfId}
+                              onChange={(e) => updateItem(index, "sourceShelfId", e.target.value)}
+                              className={`${inputCls} text-xs`}
+                            >
+                              <option value="">Shelf (optional)</option>
+                              {srcShelves.map((s) => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      ) : null
+                    })()}
                   </div>
-                  <div>
+                  <div className="space-y-1">
                     {index === 0 && (
                       <label className="block text-xs text-gray-500 dark:text-gray-400">To Warehouse</label>
                     )}
@@ -242,6 +316,38 @@ export default function TransferPage() {
                         </option>
                       ))}
                     </select>
+                    {ti.destinationWarehouseId && (() => {
+                      const dstWh = warehouses.find((w) => w.id === ti.destinationWarehouseId)
+                      const dstRows = dstWh?.rows ?? []
+                      const dstRow = dstRows.find((r) => r.id === ti.destinationWarehouseRowId)
+                      const dstShelves = dstRow?.shelves ?? []
+                      return dstRows.length > 0 ? (
+                        <div className="flex gap-1">
+                          <select
+                            value={ti.destinationWarehouseRowId}
+                            onChange={(e) => updateItem(index, "destinationWarehouseRowId", e.target.value)}
+                            className={`${inputCls} text-xs`}
+                          >
+                            <option value="">Row (optional)</option>
+                            {dstRows.map((r) => (
+                              <option key={r.id} value={r.id}>{r.name}</option>
+                            ))}
+                          </select>
+                          {ti.destinationWarehouseRowId && dstShelves.length > 0 && (
+                            <select
+                              value={ti.destinationShelfId}
+                              onChange={(e) => updateItem(index, "destinationShelfId", e.target.value)}
+                              className={`${inputCls} text-xs`}
+                            >
+                              <option value="">Shelf (optional)</option>
+                              {dstShelves.map((s) => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      ) : null
+                    })()}
                   </div>
                 </div>
                 {available !== null && (
