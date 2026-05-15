@@ -110,6 +110,22 @@ Docker Compose automatically reads `.env` from the current directory — no extr
 
 ---
 
+## Updating the App
+
+To pull the latest code and rebuild the running container:
+
+```bash
+cd ~/xenon-sms   # or wherever the repo is cloned
+git pull origin main
+docker compose up -d --build
+```
+
+Database migrations apply automatically on container startup. The database volume and the backups volume are preserved across rebuilds — do **not** use `docker compose down -v` for a routine update (that wipes the database).
+
+For single-image and bare-metal update commands, see [DEPLOYMENT.md → Updating the deployed app](./DEPLOYMENT.md#updating-the-deployed-app-quick-reference).
+
+---
+
 ## Features
 
 - **User auth** — Secure login, role-based access (admin / operator)
