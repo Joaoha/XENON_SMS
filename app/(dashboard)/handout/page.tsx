@@ -15,6 +15,19 @@ interface StockItem {
   shelf: { name: string } | null
 }
 
+interface LocationBalance {
+  warehouseCode: string
+  warehouseName: string
+  warehouseRowName: string | null
+  shelfName: string | null
+  balance: number
+}
+
+interface BalanceItem {
+  id: string
+  byLocation: LocationBalance[]
+}
+
 interface DataHall {
   id: string
   code: string
@@ -68,6 +81,7 @@ export default function HandoutPage() {
   const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
     { stockItemId: "", quantity: "" },
   ])
+  const [balanceMap, setBalanceMap] = useState<Map<string, LocationBalance[]>>(new Map())
 
   useEffect(() => {
     const safeJson = (r: Response) => r.json().catch(() => null)
@@ -77,17 +91,32 @@ export default function HandoutPage() {
       fetch("/api/pickers").then(safeJson),
       fetch("/api/warehouses").then(safeJson),
       fetch("/api/handout-profiles").then(safeJson),
-    ]).then(([stockItems, halls, pickerList, wh, profileList]) => {
+      fetch("/api/balances").then(safeJson),
+    ]).then(([stockItems, halls, pickerList, wh, profileList, balances]) => {
       if (Array.isArray(stockItems)) setItems(stockItems)
       if (Array.isArray(halls)) setDataHalls(halls)
       if (Array.isArray(pickerList)) setPickers(pickerList)
       if (Array.isArray(wh)) setWarehouses(wh)
       if (Array.isArray(profileList)) setProfiles(profileList)
+      if (Array.isArray(balances)) {
+        const map = new Map<string, LocationBalance[]>()
+        for (const b of balances as BalanceItem[]) {
+          if (b.byLocation?.length > 0) map.set(b.id, b.byLocation)
+        }
+        setBalanceMap(map)
+      }
     })
   }, [])
 
   function formatStorageLocation(item: StockItem | null): string | null {
     if (!item) return null
+    const locs = balanceMap.get(item.id)
+    if (locs && locs.length > 0) {
+      return locs.map((l) => {
+        const parts = [l.warehouseCode, l.warehouseRowName, l.shelfName].filter(Boolean)
+        return parts.length > 0 ? `${parts.join(" / ")} (${l.balance})` : null
+      }).filter(Boolean).join("; ")
+    }
     const parts = [
       item.warehouse?.name,
       item.warehouseRow?.name,
@@ -236,12 +265,21 @@ export default function HandoutPage() {
   }
 
   async function handleReprintPickingList(batchId: string) {
-    const res = await fetch(`/api/transactions/batch/${batchId}`)
-    if (!res.ok) {
+    const [batchRes, balancesRes] = await Promise.all([
+      fetch(`/api/transactions/batch/${batchId}`),
+      fetch("/api/balances"),
+    ])
+    if (!batchRes.ok) {
       setError("Failed to load batch for reprint.")
       return
     }
-    const { transactions } = await res.json()
+    const { transactions } = await batchRes.json()
+    const balancesData: BalanceItem[] = balancesRes.ok ? await balancesRes.json() : []
+    const locMap = new Map<string, LocationBalance[]>()
+    for (const b of balancesData) {
+      if (b.byLocation?.length > 0) locMap.set(b.id, b.byLocation)
+    }
+
     const first = transactions[0]
     const destParts = [
       first.dataHall ? `${first.dataHall.code} - ${first.dataHall.name}` : "",
@@ -257,14 +295,24 @@ export default function HandoutPage() {
       reference: first.reference || "",
       notes: first.notes || "",
       sourceWarehouse: sourceWh ? `${sourceWh.code} — ${sourceWh.name}` : undefined,
-      items: transactions.map((t: { stockItem: { sku: string; name: string; unit: string; warehouse: { name: string } | null; warehouseRow: { name: string } | null; shelf: { name: string } | null }; quantity: number }) => {
-        const loc = [t.stockItem.warehouse?.name, t.stockItem.warehouseRow?.name, t.stockItem.shelf?.name].filter(Boolean)
+      items: transactions.map((t: { stockItem: { id: string; sku: string; name: string; unit: string; warehouse: { name: string } | null; warehouseRow: { name: string } | null; shelf: { name: string } | null }; quantity: number }) => {
+        const locs = locMap.get(t.stockItem.id)
+        let storageLocation: string | null = null
+        if (locs && locs.length > 0) {
+          storageLocation = locs.map((l) => {
+            const parts = [l.warehouseCode, l.warehouseRowName, l.shelfName].filter(Boolean)
+            return parts.length > 0 ? `${parts.join(" / ")} (${l.balance})` : null
+          }).filter(Boolean).join("; ")
+        } else {
+          const loc = [t.stockItem.warehouse?.name, t.stockItem.warehouseRow?.name, t.stockItem.shelf?.name].filter(Boolean)
+          storageLocation = loc.length > 0 ? loc.join(" -> ") : null
+        }
         return {
           sku: t.stockItem.sku,
           name: t.stockItem.name,
           quantity: t.quantity,
           unit: t.stockItem.unit,
-          storageLocation: loc.length > 0 ? loc.join(" -> ") : null,
+          storageLocation,
         }
       }),
     }
