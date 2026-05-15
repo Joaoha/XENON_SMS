@@ -2,6 +2,28 @@
 
 All notable changes to XENON Stock Management System are documented here.
 
+## [1.3.0] — 2026-05-15
+
+### New Features
+
+- **Bulk CSV import for destination rack locations** — Admin can download a CSV template, upload a filled file, preview parsed rows with row-level validation errors, and commit. Supports the full Data Hall → Row → Rack hierarchy in a single CSV. Idempotent: re-importing the same file produces 0 created, N skipped. All-or-nothing transactional commit. ImportLog audit trail captures user, filename, counts, and errors per import.
+- **Persistent backups volume** — Backups now live in a named Docker volume mounted at `/app/backups`, preserved across container rebuilds. New admin pages and API routes for triggering daily/weekly/monthly/full backups and downloading the resulting CSV + JSON sidecar files.
+
+### Fixes
+
+- Prevent duplicate items in handout profiles.
+- Ensure the in-container backups directory is writable in the Docker image.
+
+### Schema Changes
+
+1 new database migration (`20260512000000_add_import_log`) for the `ImportLog` audit table. Applied automatically on container startup.
+
+### Docs
+
+- Added "Updating the deployed app" sections to README and DEPLOYMENT covering the `git pull origin main && docker compose up -d --build` flow, with single-image and bare-metal variants and a warning against `docker compose down -v` on routine updates.
+
+---
+
 ## [1.1.0] — 2026-04-17
 
 ### New Features

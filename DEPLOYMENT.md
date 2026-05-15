@@ -1,6 +1,6 @@
 # XENON Stock Management System — Deployment Guide
 
-Version: **1.1.0**
+Version: **1.3.0**
 
 ---
 
@@ -56,7 +56,7 @@ AUTH_SECRET="your-secret"   # openssl rand -base64 32
 ### 2. Build the image
 
 ```bash
-docker build -t xenon-sms:1.1.0 .
+docker build -t xenon-sms:1.3.0 .
 ```
 
 ### 3. Run
@@ -67,7 +67,7 @@ docker run -d \
   --env-file .env \
   -p 3000:3000 \
   --restart unless-stopped \
-  xenon-sms:1.1.0
+  xenon-sms:1.3.0
 ```
 
 The container will:
