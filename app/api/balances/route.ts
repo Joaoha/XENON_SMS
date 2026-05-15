@@ -185,12 +185,20 @@ export async function GET(req: Request) {
         : tx.balance
 
       const nonZeroLocations = byLocation.filter((l) => l.balance !== 0)
+      const hasShelfDetail = nonZeroLocations.some((l) => l.warehouseRowName || l.shelfName)
       let location: string | null = null
-      if (nonZeroLocations.length === 1) {
+      if (hasShelfDetail && nonZeroLocations.length > 1) {
+        location = `Multiple (${nonZeroLocations.length})`
+      } else if (hasShelfDetail && nonZeroLocations.length === 1) {
         const l = nonZeroLocations[0]
         location = [l.warehouseCode, l.warehouseRowName, l.shelfName].filter(Boolean).join(" / ")
-      } else if (nonZeroLocations.length > 1) {
-        location = `Multiple (${nonZeroLocations.length})`
+      } else {
+        const locationParts = [
+          item.warehouse?.code,
+          item.warehouseRow?.name,
+          item.shelf?.name,
+        ].filter(Boolean)
+        location = locationParts.length > 0 ? locationParts.join(" / ") : null
       }
 
       return {

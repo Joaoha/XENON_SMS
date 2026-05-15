@@ -205,7 +205,10 @@ export default function DashboardPage() {
                     </td>
                   </tr>
                   {expandedItems.has(item.id) && item.byLocation.map((loc, idx) => {
-                    const path = [loc.warehouseCode, loc.warehouseRowName, loc.shelfName].filter(Boolean).join(" / ")
+                    const hasShelfDetail = loc.warehouseRowName || loc.shelfName
+                    const path = hasShelfDetail
+                      ? [loc.warehouseCode, loc.warehouseRowName, loc.shelfName].filter(Boolean).join(" / ")
+                      : `${loc.warehouseCode} — ${loc.warehouseName}`
                     return (
                       <tr key={`${item.id}-loc-${idx}`} className="bg-gray-50/50 dark:bg-gray-900/50">
                         <td className="px-6 py-2 pl-14" colSpan={5}>
