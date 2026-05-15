@@ -86,13 +86,16 @@ curl -X POST http://localhost:3000/api/seed \
 
 ### Updating to a new version
 
+Pull the latest code from the repo first, then rebuild and restart the container.
+
 ```bash
+git pull origin main
 docker build -t xenon-sms:NEW_VERSION .
 docker stop xenon-sms && docker rm xenon-sms
 docker run -d --name xenon-sms --env-file .env -p 3000:3000 --restart unless-stopped xenon-sms:NEW_VERSION
 ```
 
-Migrations run automatically on startup.
+Migrations run automatically on container startup.
 
 ---
 
@@ -139,6 +142,35 @@ docker compose down -v       # stop and wipe the database
 docker compose up -d         # restart without rebuilding
 docker compose up -d --build # rebuild and restart
 ```
+
+### Updating to a new version
+
+Pull the latest code from the repo and rebuild. The database volume is preserved.
+
+```bash
+git pull origin main
+docker compose up -d --build
+```
+
+Migrations run automatically when the app container starts.
+
+---
+
+## Updating the deployed app (quick reference)
+
+Whichever deployment option you use, the update flow is the same shape: **pull the latest code, rebuild, restart**. Migrations apply automatically on startup — you do not run them manually.
+
+| Deployment | One-shot update command |
+|------------|-------------------------|
+| Docker Compose (Option B) | `git pull origin main && docker compose up -d --build` |
+| Single Docker image (Option A) | `git pull origin main && docker build -t xenon-sms:latest . && docker stop xenon-sms && docker rm xenon-sms && docker run -d --name xenon-sms --env-file .env -p 3000:3000 --restart unless-stopped xenon-sms:latest` |
+| Bare metal (Option C) | `git pull origin main && npm ci --omit=dev && npx prisma migrate deploy && npm run build && pm2 restart xenon-sms` |
+
+Notes:
+
+- Always run the update command from the repo root on the deployment host.
+- The Docker Compose database volume (and the backups volume) is preserved across `up -d --build`. Do not use `down -v` for a routine update — that wipes the database.
+- If a deployment fails, `git log -1` shows which commit is now checked out so you can roll back with `git checkout <previous-sha>` and rebuild.
 
 ---
 
