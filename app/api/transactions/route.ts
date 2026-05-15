@@ -82,7 +82,7 @@ export async function POST(req: Request) {
 
     const userId = (session.user as { id?: string }).id!
     const body = await req.json()
-    const { type, pickedBy, dataHallId, rowId, rackId, notes, reference, sourceWarehouseId, destinationWarehouseId } = body
+    const { type, pickedBy, dataHallId, rowId, rackId, notes, reference, sourceWarehouseId, destinationWarehouseId, destinationWarehouseRowId, destinationShelfId } = body
 
     const txInclude = {
       stockItem: { select: { id: true, sku: true, name: true, unit: true } },
@@ -92,6 +92,8 @@ export async function POST(req: Request) {
       rack: { select: { id: true, name: true } },
       sourceWarehouse: { select: { id: true, name: true, code: true } },
       destinationWarehouse: { select: { id: true, name: true, code: true } },
+      destinationWarehouseRow: { select: { id: true, name: true } },
+      destinationShelf: { select: { id: true, name: true } },
     }
 
     const itemsList: { stockItemId: string; quantity: number }[] = body.items
@@ -224,6 +226,8 @@ export async function POST(req: Request) {
           rowId: rowId || null,
           rackId: rackId || null,
           destinationWarehouseId: destinationWarehouseId || null,
+          destinationWarehouseRowId: destinationWarehouseRowId || null,
+          destinationShelfId: destinationShelfId || null,
           notes,
           reference,
         },

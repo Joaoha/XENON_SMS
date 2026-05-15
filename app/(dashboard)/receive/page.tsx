@@ -66,6 +66,8 @@ export default function ReceivePage() {
       reference: (form.elements.namedItem("reference") as HTMLInputElement).value,
       notes: (form.elements.namedItem("notes") as HTMLTextAreaElement).value,
       destinationWarehouseId: selectedWarehouse || undefined,
+      destinationWarehouseRowId: selectedRow || undefined,
+      destinationShelfId: selectedShelf || undefined,
     }
     const res = await fetch("/api/transactions", {
       method: "POST",
