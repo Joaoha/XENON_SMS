@@ -64,8 +64,10 @@ export default function ReportsPage() {
       .then((dh) => { if (Array.isArray(dh)) setDataHalls(dh) })
   }, [])
 
-  const selectedHalls = dataHalls.filter((dh) => selectedHallIds.includes(dh.id))
-  const availableRows: Row[] = selectedHalls.flatMap((dh) => dh.rows)
+  const hallSource = selectedHallIds.length > 0
+    ? dataHalls.filter((dh) => selectedHallIds.includes(dh.id))
+    : (scope === "row" || scope === "rack") ? dataHalls : []
+  const availableRows: Row[] = hallSource.flatMap((dh) => dh.rows)
   const availableRacks: Rack[] = availableRows
     .filter((r) => selectedRowIds.length === 0 || selectedRowIds.includes(r.id))
     .flatMap((r) => r.racks)
