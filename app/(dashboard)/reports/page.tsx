@@ -46,16 +46,14 @@ export default function ReportsPage() {
   const [items, setItems] = useState<StockItem[]>([])
   const [dataHalls, setDataHalls] = useState<DataHall[]>([])
   const [loading, setLoading] = useState(false)
-  const [filters, setFilters] = useState({ from: "", to: "", itemId: "", type: "HANDOUT", dataHallId: "" })
+  const [filters, setFilters] = useState({ from: "", to: "", itemId: "", type: "HANDOUT" })
   const [scope, setScope] = useState<"" | "row" | "rack" | "hall">("")
+  const [selectedHallIds, setSelectedHallIds] = useState<string[]>([])
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([])
   const [selectedRackIds, setSelectedRackIds] = useState<string[]>([])
-  const [selectedHallIds, setSelectedHallIds] = useState<string[]>([])
+  const [hallSearch, setHallSearch] = useState("")
   const [rowSearch, setRowSearch] = useState("")
   const [rackSearch, setRackSearch] = useState("")
-  const [hallSearch, setHallSearch] = useState("")
-  const [hallScopeSearch, setHallScopeSearch] = useState("")
-  const [hallDropdownOpen, setHallDropdownOpen] = useState(false)
 
   useEffect(() => {
     fetch("/api/stock-items")
@@ -66,8 +64,8 @@ export default function ReportsPage() {
       .then((dh) => { if (Array.isArray(dh)) setDataHalls(dh) })
   }, [])
 
-  const selectedHall = dataHalls.find((dh) => dh.id === filters.dataHallId)
-  const availableRows: Row[] = selectedHall?.rows ?? []
+  const selectedHalls = dataHalls.filter((dh) => selectedHallIds.includes(dh.id))
+  const availableRows: Row[] = selectedHalls.flatMap((dh) => dh.rows)
   const availableRacks: Rack[] = availableRows
     .filter((r) => selectedRowIds.length === 0 || selectedRowIds.includes(r.id))
     .flatMap((r) => r.racks)
@@ -80,9 +78,6 @@ export default function ReportsPage() {
   const filteredRacks = rackSearch
     ? availableRacks.filter((r) => r.name.toLowerCase().includes(rackSearch.toLowerCase()))
     : availableRacks
-  const filteredHallScope = hallScopeSearch
-    ? dataHalls.filter((dh) => `${dh.code} ${dh.name}`.toLowerCase().includes(hallScopeSearch.toLowerCase()))
-    : dataHalls
 
   const run = useCallback(async () => {
     if (!filters.from && !filters.to) return
@@ -92,8 +87,7 @@ export default function ReportsPage() {
     if (filters.type) params.set("type", filters.type)
     if (filters.from) params.set("from", filters.from)
     if (filters.to) params.set("to", filters.to)
-    if (filters.dataHallId) params.set("dataHallId", filters.dataHallId)
-    else if (selectedHallIds.length > 0) params.set("dataHallIds", selectedHallIds.join(","))
+    if (selectedHallIds.length > 0) params.set("dataHallIds", selectedHallIds.join(","))
     if (selectedRowIds.length > 0) params.set("rowIds", selectedRowIds.join(","))
     if (selectedRackIds.length > 0) params.set("rackIds", selectedRackIds.join(","))
     params.set("limit", "1000")
@@ -102,7 +96,7 @@ export default function ReportsPage() {
     setTransactions(data.transactions ?? [])
     setTotal(data.total ?? 0)
     setLoading(false)
-  }, [filters, selectedRowIds, selectedRackIds, selectedHallIds])
+  }, [filters, selectedHallIds, selectedRowIds, selectedRackIds])
 
   // Aggregate by person
   const byPerson: Record<string, { name: string; qty: number; items: Record<string, number> }> = {}
@@ -165,8 +159,7 @@ export default function ReportsPage() {
     if (filters.itemId) params.set("itemId", filters.itemId)
     if (filters.from) params.set("from", filters.from)
     if (filters.to) params.set("to", filters.to)
-    if (filters.dataHallId) params.set("dataHallId", filters.dataHallId)
-    else if (selectedHallIds.length > 0) params.set("dataHallIds", selectedHallIds.join(","))
+    if (selectedHallIds.length > 0) params.set("dataHallIds", selectedHallIds.join(","))
     if (selectedRowIds.length > 0) params.set("rowIds", selectedRowIds.join(","))
     if (selectedRackIds.length > 0) params.set("rackIds", selectedRackIds.join(","))
     return `/api/export?${params}`
@@ -194,7 +187,7 @@ export default function ReportsPage() {
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4 space-y-4">
         <h2 className="font-medium text-gray-700 dark:text-gray-300">Filter Transactions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div>
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Type</label>
             <select
@@ -221,59 +214,6 @@ export default function ReportsPage() {
                 </option>
               ))}
             </select>
-          </div>
-          <div className="relative">
-            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Destination</label>
-            <input
-              type="text"
-              placeholder="Type to search or select…"
-              value={hallSearch}
-              onChange={(e) => {
-                setHallSearch(e.target.value)
-                if (filters.dataHallId) {
-                  setFilters((f) => ({ ...f, dataHallId: "" }))
-                  setSelectedRowIds([])
-                  setSelectedRackIds([])
-                }
-                setHallDropdownOpen(true)
-              }}
-              onFocus={() => setHallDropdownOpen(true)}
-              onBlur={() => setTimeout(() => setHallDropdownOpen(false), 150)}
-              className={filterSelectCls}
-            />
-            {hallDropdownOpen && filteredHalls.length > 0 && !filters.dataHallId && (
-              <div className="absolute z-10 mt-1 max-h-40 overflow-y-auto rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-lg">
-                {filteredHalls.map((dh) => (
-                  <button
-                    key={dh.id}
-                    type="button"
-                    onClick={() => {
-                      setFilters((f) => ({ ...f, dataHallId: dh.id }))
-                      setHallSearch(`${dh.code} — ${dh.name}`)
-                      setSelectedRowIds([])
-                      setSelectedRackIds([])
-                    }}
-                    className="block w-full text-left px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-gray-600"
-                  >
-                    {dh.code} — {dh.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            {filters.dataHallId && (
-              <button
-                type="button"
-                onClick={() => {
-                  setFilters((f) => ({ ...f, dataHallId: "" }))
-                  setHallSearch("")
-                  setSelectedRowIds([])
-                  setSelectedRackIds([])
-                }}
-                className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
-              >
-                Clear destination
-              </button>
-            )}
           </div>
           <div>
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">From Date</label>
@@ -304,10 +244,8 @@ export default function ReportsPage() {
                 setScope(e.target.value as "" | "row" | "rack" | "hall")
                 setSelectedRowIds([])
                 setSelectedRackIds([])
-                setSelectedHallIds([])
                 setRowSearch("")
                 setRackSearch("")
-                setHallScopeSearch("")
               }}
               className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1.5 text-sm"
             >
@@ -318,24 +256,30 @@ export default function ReportsPage() {
             </select>
           </div>
 
-          {(scope === "" || scope === "hall") && dataHalls.length > 0 && (
+          {dataHalls.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Filter Data Halls {selectedHallIds.length > 0 ? `(${selectedHallIds.length} selected)` : "(all)"}
+                Data Hall {selectedHallIds.length > 0 ? `(${selectedHallIds.length} selected)` : "(all)"}
               </label>
               <input
                 type="text"
                 placeholder="Type hall code or name to filter…"
-                value={hallScopeSearch}
-                onChange={(e) => setHallScopeSearch(e.target.value)}
+                value={hallSearch}
+                onChange={(e) => setHallSearch(e.target.value)}
                 className={`${multiSelectCls} mb-2`}
               />
               <div className="flex flex-wrap gap-2">
-                {filteredHallScope.map((dh) => (
+                {filteredHalls.map((dh) => (
                   <button
                     key={dh.id}
                     type="button"
-                    onClick={() => setSelectedHallIds((ids) => toggleId(ids, dh.id))}
+                    onClick={() => {
+                      setSelectedHallIds((ids) => toggleId(ids, dh.id))
+                      setSelectedRowIds([])
+                      setSelectedRackIds([])
+                      setRowSearch("")
+                      setRackSearch("")
+                    }}
                     className={`px-2 py-1 text-xs rounded-md border ${
                       selectedHallIds.includes(dh.id)
                         ? "bg-blue-600 border-blue-600 text-white"
@@ -349,10 +293,10 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {(scope === "" || scope === "row" || scope === "rack") && availableRows.length > 0 && (
+          {availableRows.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Filter Rows {selectedRowIds.length > 0 ? `(${selectedRowIds.length} selected)` : "(all)"}
+                Row {selectedRowIds.length > 0 ? `(${selectedRowIds.length} selected)` : "(all)"}
               </label>
               <input
                 type="text"
@@ -369,6 +313,7 @@ export default function ReportsPage() {
                     onClick={() => {
                       setSelectedRowIds((ids) => toggleId(ids, row.id))
                       setSelectedRackIds([])
+                      setRackSearch("")
                     }}
                     className={`px-2 py-1 text-xs rounded-md border ${
                       selectedRowIds.includes(row.id)
@@ -383,10 +328,10 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {(scope === "" || scope === "rack") && availableRacks.length > 0 && (
+          {availableRacks.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
-                Filter Racks {selectedRackIds.length > 0 ? `(${selectedRackIds.length} selected)` : "(all)"}
+                Rack {selectedRackIds.length > 0 ? `(${selectedRackIds.length} selected)` : "(all)"}
               </label>
               <input
                 type="text"
