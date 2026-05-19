@@ -14,13 +14,16 @@ export async function GET(req: Request) {
   const dataHallId = searchParams.get("dataHallId")
   const rowIdsParam = searchParams.get("rowIds")
   const rackIdsParam = searchParams.get("rackIds")
+  const dataHallIdsParam = searchParams.get("dataHallIds")
   const rowIds = rowIdsParam ? rowIdsParam.split(",").filter(Boolean) : []
   const rackIds = rackIdsParam ? rackIdsParam.split(",").filter(Boolean) : []
+  const dataHallIds = dataHallIdsParam ? dataHallIdsParam.split(",").filter(Boolean) : []
 
   const where: Record<string, unknown> = { deletedAt: null }
   if (type !== "all") where.type = type
   if (itemId) where.stockItemId = itemId
   if (dataHallId) where.dataHallId = dataHallId
+  else if (dataHallIds.length > 0) where.dataHallId = { in: dataHallIds }
   if (rowIds.length > 0) where.rowId = { in: rowIds }
   if (rackIds.length > 0) where.rackId = { in: rackIds }
   if (from || to) {

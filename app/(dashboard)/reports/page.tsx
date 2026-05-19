@@ -47,9 +47,15 @@ export default function ReportsPage() {
   const [dataHalls, setDataHalls] = useState<DataHall[]>([])
   const [loading, setLoading] = useState(false)
   const [filters, setFilters] = useState({ from: "", to: "", itemId: "", type: "HANDOUT", dataHallId: "" })
-  const [scope, setScope] = useState<"" | "row" | "rack">("")
+  const [scope, setScope] = useState<"" | "row" | "rack" | "hall">("")
   const [selectedRowIds, setSelectedRowIds] = useState<string[]>([])
   const [selectedRackIds, setSelectedRackIds] = useState<string[]>([])
+  const [selectedHallIds, setSelectedHallIds] = useState<string[]>([])
+  const [rowSearch, setRowSearch] = useState("")
+  const [rackSearch, setRackSearch] = useState("")
+  const [hallSearch, setHallSearch] = useState("")
+  const [hallScopeSearch, setHallScopeSearch] = useState("")
+  const [hallDropdownOpen, setHallDropdownOpen] = useState(false)
 
   useEffect(() => {
     fetch("/api/stock-items")
@@ -65,6 +71,18 @@ export default function ReportsPage() {
   const availableRacks: Rack[] = availableRows
     .filter((r) => selectedRowIds.length === 0 || selectedRowIds.includes(r.id))
     .flatMap((r) => r.racks)
+  const filteredHalls = hallSearch
+    ? dataHalls.filter((dh) => `${dh.code} ${dh.name}`.toLowerCase().includes(hallSearch.toLowerCase()))
+    : dataHalls
+  const filteredRows = rowSearch
+    ? availableRows.filter((r) => r.name.toLowerCase().includes(rowSearch.toLowerCase()))
+    : availableRows
+  const filteredRacks = rackSearch
+    ? availableRacks.filter((r) => r.name.toLowerCase().includes(rackSearch.toLowerCase()))
+    : availableRacks
+  const filteredHallScope = hallScopeSearch
+    ? dataHalls.filter((dh) => `${dh.code} ${dh.name}`.toLowerCase().includes(hallScopeSearch.toLowerCase()))
+    : dataHalls
 
   const run = useCallback(async () => {
     if (!filters.from && !filters.to) return
@@ -75,6 +93,7 @@ export default function ReportsPage() {
     if (filters.from) params.set("from", filters.from)
     if (filters.to) params.set("to", filters.to)
     if (filters.dataHallId) params.set("dataHallId", filters.dataHallId)
+    else if (selectedHallIds.length > 0) params.set("dataHallIds", selectedHallIds.join(","))
     if (selectedRowIds.length > 0) params.set("rowIds", selectedRowIds.join(","))
     if (selectedRackIds.length > 0) params.set("rackIds", selectedRackIds.join(","))
     params.set("limit", "1000")
@@ -83,7 +102,7 @@ export default function ReportsPage() {
     setTransactions(data.transactions ?? [])
     setTotal(data.total ?? 0)
     setLoading(false)
-  }, [filters, selectedRowIds, selectedRackIds])
+  }, [filters, selectedRowIds, selectedRackIds, selectedHallIds])
 
   // Aggregate by person
   const byPerson: Record<string, { name: string; qty: number; items: Record<string, number> }> = {}
@@ -91,6 +110,7 @@ export default function ReportsPage() {
   const byItem: Record<string, { name: string; sku: string; unit: string; qty: number }> = {}
   const byRow: Record<string, { name: string; qty: number; items: Record<string, { name: string; sku: string; unit: string; qty: number }> }> = {}
   const byRack: Record<string, { name: string; rowName: string; qty: number; items: Record<string, { name: string; sku: string; unit: string; qty: number }> }> = {}
+  const byHall: Record<string, { code: string; name: string; qty: number; items: Record<string, { name: string; sku: string; unit: string; qty: number }> }> = {}
 
   for (const t of transactions) {
     if (t.pickedBy) {
@@ -127,6 +147,16 @@ export default function ReportsPage() {
         byRack[t.rack.id].items[rk] = { name: t.stockItem.name, sku: t.stockItem.sku, unit: t.stockItem.unit, qty: 0 }
       byRack[t.rack.id].items[rk].qty += t.quantity
     }
+
+    if (t.dataHall) {
+      const hallKey = t.dataHall.code
+      if (!byHall[hallKey]) byHall[hallKey] = { code: t.dataHall.code, name: t.dataHall.name, qty: 0, items: {} }
+      byHall[hallKey].qty += t.quantity
+      const ik = t.stockItem.sku
+      if (!byHall[hallKey].items[ik])
+        byHall[hallKey].items[ik] = { name: t.stockItem.name, sku: t.stockItem.sku, unit: t.stockItem.unit, qty: 0 }
+      byHall[hallKey].items[ik].qty += t.quantity
+    }
   }
 
   const exportUrl = () => {
@@ -136,6 +166,7 @@ export default function ReportsPage() {
     if (filters.from) params.set("from", filters.from)
     if (filters.to) params.set("to", filters.to)
     if (filters.dataHallId) params.set("dataHallId", filters.dataHallId)
+    else if (selectedHallIds.length > 0) params.set("dataHallIds", selectedHallIds.join(","))
     if (selectedRowIds.length > 0) params.set("rowIds", selectedRowIds.join(","))
     if (selectedRackIds.length > 0) params.set("rackIds", selectedRackIds.join(","))
     return `/api/export?${params}`
@@ -191,24 +222,58 @@ export default function ReportsPage() {
               ))}
             </select>
           </div>
-          <div>
+          <div className="relative">
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Destination</label>
-            <select
-              value={filters.dataHallId}
+            <input
+              type="text"
+              placeholder="Type to search or select…"
+              value={hallSearch}
               onChange={(e) => {
-                setFilters((f) => ({ ...f, dataHallId: e.target.value }))
-                setSelectedRowIds([])
-                setSelectedRackIds([])
+                setHallSearch(e.target.value)
+                if (filters.dataHallId) {
+                  setFilters((f) => ({ ...f, dataHallId: "" }))
+                  setSelectedRowIds([])
+                  setSelectedRackIds([])
+                }
+                setHallDropdownOpen(true)
               }}
+              onFocus={() => setHallDropdownOpen(true)}
+              onBlur={() => setTimeout(() => setHallDropdownOpen(false), 150)}
               className={filterSelectCls}
-            >
-              <option value="">All destinations</option>
-              {dataHalls.map((dh) => (
-                <option key={dh.id} value={dh.id}>
-                  {dh.code} — {dh.name}
-                </option>
-              ))}
-            </select>
+            />
+            {hallDropdownOpen && filteredHalls.length > 0 && !filters.dataHallId && (
+              <div className="absolute z-10 mt-1 max-h-40 overflow-y-auto rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 shadow-lg">
+                {filteredHalls.map((dh) => (
+                  <button
+                    key={dh.id}
+                    type="button"
+                    onClick={() => {
+                      setFilters((f) => ({ ...f, dataHallId: dh.id }))
+                      setHallSearch(`${dh.code} — ${dh.name}`)
+                      setSelectedRowIds([])
+                      setSelectedRackIds([])
+                    }}
+                    className="block w-full text-left px-2 py-1.5 text-sm text-gray-900 dark:text-gray-100 hover:bg-blue-50 dark:hover:bg-gray-600"
+                  >
+                    {dh.code} — {dh.name}
+                  </button>
+                ))}
+              </div>
+            )}
+            {filters.dataHallId && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFilters((f) => ({ ...f, dataHallId: "" }))
+                  setHallSearch("")
+                  setSelectedRowIds([])
+                  setSelectedRackIds([])
+                }}
+                className="mt-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                Clear destination
+              </button>
+            )}
           </div>
           <div>
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">From Date</label>
@@ -236,25 +301,68 @@ export default function ReportsPage() {
             <select
               value={scope}
               onChange={(e) => {
-                setScope(e.target.value as "" | "row" | "rack")
+                setScope(e.target.value as "" | "row" | "rack" | "hall")
                 setSelectedRowIds([])
                 setSelectedRackIds([])
+                setSelectedHallIds([])
+                setRowSearch("")
+                setRackSearch("")
+                setHallScopeSearch("")
               }}
               className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1.5 text-sm"
             >
               <option value="">Default (all views)</option>
+              <option value="hall">By Data Hall</option>
               <option value="row">By Row</option>
               <option value="rack">By Rack</option>
             </select>
           </div>
+
+          {scope === "hall" && dataHalls.length > 0 && (
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Filter Data Halls {selectedHallIds.length > 0 ? `(${selectedHallIds.length} selected)` : "(all)"}
+              </label>
+              <input
+                type="text"
+                placeholder="Type hall code or name to filter…"
+                value={hallScopeSearch}
+                onChange={(e) => setHallScopeSearch(e.target.value)}
+                className={`${multiSelectCls} mb-2`}
+              />
+              <div className="flex flex-wrap gap-2">
+                {filteredHallScope.map((dh) => (
+                  <button
+                    key={dh.id}
+                    type="button"
+                    onClick={() => setSelectedHallIds((ids) => toggleId(ids, dh.id))}
+                    className={`px-2 py-1 text-xs rounded-md border ${
+                      selectedHallIds.includes(dh.id)
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    {dh.code} — {dh.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {(scope === "row" || scope === "rack") && availableRows.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Filter Rows {selectedRowIds.length > 0 ? `(${selectedRowIds.length} selected)` : "(all)"}
               </label>
+              <input
+                type="text"
+                placeholder="Type row name to filter…"
+                value={rowSearch}
+                onChange={(e) => setRowSearch(e.target.value)}
+                className={`${multiSelectCls} mb-2`}
+              />
               <div className="flex flex-wrap gap-2">
-                {availableRows.map((row) => (
+                {filteredRows.map((row) => (
                   <button
                     key={row.id}
                     type="button"
@@ -280,8 +388,15 @@ export default function ReportsPage() {
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Filter Racks {selectedRackIds.length > 0 ? `(${selectedRackIds.length} selected)` : "(all)"}
               </label>
+              <input
+                type="text"
+                placeholder="Type rack name to filter…"
+                value={rackSearch}
+                onChange={(e) => setRackSearch(e.target.value)}
+                className={`${multiSelectCls} mb-2`}
+              />
               <div className="flex flex-wrap gap-2">
-                {availableRacks.map((rack) => (
+                {filteredRacks.map((rack) => (
                   <button
                     key={rack.id}
                     type="button"
@@ -312,6 +427,41 @@ export default function ReportsPage() {
       {transactions.length > 0 && (
         <div className="text-sm text-gray-600 dark:text-gray-400">
           {total} transaction{total !== 1 ? "s" : ""} matched
+        </div>
+      )}
+
+      {scope === "hall" && Object.keys(byHall).length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100">By Data Hall</h2>
+          </div>
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {Object.values(byHall)
+              .sort((a, b) => b.qty - a.qty)
+              .map((hall) => (
+                <div key={hall.code} className="px-6 py-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {hall.code} — {hall.name}
+                    </span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100">{hall.qty} total</span>
+                  </div>
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {Object.values(hall.items)
+                        .sort((a, b) => b.qty - a.qty)
+                        .map((item) => (
+                          <tr key={item.sku}>
+                            <td className="py-1 text-gray-500 dark:text-gray-400 pr-4">{item.sku}</td>
+                            <td className="py-1 text-gray-700 dark:text-gray-300">{item.name}</td>
+                            <td className="py-1 text-right text-gray-900 dark:text-gray-100">{item.qty} {item.unit}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+          </div>
         </div>
       )}
 
