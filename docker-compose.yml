@@ -10,10 +10,12 @@ services:
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    command: postgres -c timezone='Australia/Sydney'
     environment:
       POSTGRES_USER: xenon
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: xenon_sms
+      TZ: "Australia/Sydney"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
