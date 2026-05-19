@@ -12,11 +12,17 @@ export async function GET(req: Request) {
   const to = searchParams.get("to")
   const itemId = searchParams.get("itemId")
   const dataHallId = searchParams.get("dataHallId")
+  const rowIdsParam = searchParams.get("rowIds")
+  const rackIdsParam = searchParams.get("rackIds")
+  const rowIds = rowIdsParam ? rowIdsParam.split(",").filter(Boolean) : []
+  const rackIds = rackIdsParam ? rackIdsParam.split(",").filter(Boolean) : []
 
   const where: Record<string, unknown> = { deletedAt: null }
   if (type !== "all") where.type = type
   if (itemId) where.stockItemId = itemId
   if (dataHallId) where.dataHallId = dataHallId
+  if (rowIds.length > 0) where.rowId = { in: rowIds }
+  if (rackIds.length > 0) where.rackId = { in: rackIds }
   if (from || to) {
     where.createdAt = {}
     if (from) (where.createdAt as Record<string, Date>).gte = new Date(from)

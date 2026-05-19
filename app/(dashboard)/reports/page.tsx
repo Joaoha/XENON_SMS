@@ -12,8 +12,8 @@ interface Transaction {
   stockItem: { sku: string; name: string; unit: string }
   user: { username: string }
   dataHall: { code: string; name: string } | null
-  row: { name: string } | null
-  rack: { name: string } | null
+  row: { id: string; name: string } | null
+  rack: { id: string; name: string } | null
 }
 
 interface StockItem {
@@ -26,6 +26,18 @@ interface DataHall {
   id: string
   code: string
   name: string
+  rows: Row[]
+}
+
+interface Row {
+  id: string
+  name: string
+  racks: Rack[]
+}
+
+interface Rack {
+  id: string
+  name: string
 }
 
 export default function ReportsPage() {
@@ -35,6 +47,9 @@ export default function ReportsPage() {
   const [dataHalls, setDataHalls] = useState<DataHall[]>([])
   const [loading, setLoading] = useState(false)
   const [filters, setFilters] = useState({ from: "", to: "", itemId: "", type: "HANDOUT", dataHallId: "" })
+  const [scope, setScope] = useState<"" | "row" | "rack">("")
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([])
+  const [selectedRackIds, setSelectedRackIds] = useState<string[]>([])
 
   useEffect(() => {
     fetch("/api/stock-items")
@@ -45,6 +60,12 @@ export default function ReportsPage() {
       .then((dh) => { if (Array.isArray(dh)) setDataHalls(dh) })
   }, [])
 
+  const selectedHall = dataHalls.find((dh) => dh.id === filters.dataHallId)
+  const availableRows: Row[] = selectedHall?.rows ?? []
+  const availableRacks: Rack[] = availableRows
+    .filter((r) => selectedRowIds.length === 0 || selectedRowIds.includes(r.id))
+    .flatMap((r) => r.racks)
+
   const run = useCallback(async () => {
     if (!filters.from && !filters.to) return
     setLoading(true)
@@ -54,18 +75,22 @@ export default function ReportsPage() {
     if (filters.from) params.set("from", filters.from)
     if (filters.to) params.set("to", filters.to)
     if (filters.dataHallId) params.set("dataHallId", filters.dataHallId)
+    if (selectedRowIds.length > 0) params.set("rowIds", selectedRowIds.join(","))
+    if (selectedRackIds.length > 0) params.set("rackIds", selectedRackIds.join(","))
     params.set("limit", "1000")
     const res = await fetch(`/api/transactions?${params}`)
     const data = await res.json()
     setTransactions(data.transactions ?? [])
     setTotal(data.total ?? 0)
     setLoading(false)
-  }, [filters])
+  }, [filters, selectedRowIds, selectedRackIds])
 
   // Aggregate by person
   const byPerson: Record<string, { name: string; qty: number; items: Record<string, number> }> = {}
   const byDestination: Record<string, { label: string; qty: number }> = {}
   const byItem: Record<string, { name: string; sku: string; unit: string; qty: number }> = {}
+  const byRow: Record<string, { name: string; qty: number; items: Record<string, { name: string; sku: string; unit: string; qty: number }> }> = {}
+  const byRack: Record<string, { name: string; rowName: string; qty: number; items: Record<string, { name: string; sku: string; unit: string; qty: number }> }> = {}
 
   for (const t of transactions) {
     if (t.pickedBy) {
@@ -84,6 +109,24 @@ export default function ReportsPage() {
     if (!byItem[itemKey])
       byItem[itemKey] = { name: t.stockItem.name, sku: t.stockItem.sku, unit: t.stockItem.unit, qty: 0 }
     byItem[itemKey].qty += t.quantity
+
+    if (t.row) {
+      if (!byRow[t.row.id]) byRow[t.row.id] = { name: t.row.name, qty: 0, items: {} }
+      byRow[t.row.id].qty += t.quantity
+      const rk = t.stockItem.sku
+      if (!byRow[t.row.id].items[rk])
+        byRow[t.row.id].items[rk] = { name: t.stockItem.name, sku: t.stockItem.sku, unit: t.stockItem.unit, qty: 0 }
+      byRow[t.row.id].items[rk].qty += t.quantity
+    }
+
+    if (t.rack) {
+      if (!byRack[t.rack.id]) byRack[t.rack.id] = { name: t.rack.name, rowName: t.row?.name ?? "", qty: 0, items: {} }
+      byRack[t.rack.id].qty += t.quantity
+      const rk = t.stockItem.sku
+      if (!byRack[t.rack.id].items[rk])
+        byRack[t.rack.id].items[rk] = { name: t.stockItem.name, sku: t.stockItem.sku, unit: t.stockItem.unit, qty: 0 }
+      byRack[t.rack.id].items[rk].qty += t.quantity
+    }
   }
 
   const exportUrl = () => {
@@ -93,10 +136,16 @@ export default function ReportsPage() {
     if (filters.from) params.set("from", filters.from)
     if (filters.to) params.set("to", filters.to)
     if (filters.dataHallId) params.set("dataHallId", filters.dataHallId)
+    if (selectedRowIds.length > 0) params.set("rowIds", selectedRowIds.join(","))
+    if (selectedRackIds.length > 0) params.set("rackIds", selectedRackIds.join(","))
     return `/api/export?${params}`
   }
 
   const filterSelectCls = "w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1.5 text-sm"
+  const multiSelectCls = "w-full rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1 text-sm"
+
+  const toggleId = (ids: string[], id: string) =>
+    ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]
 
   return (
     <div className="space-y-6">
@@ -146,7 +195,11 @@ export default function ReportsPage() {
             <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Destination</label>
             <select
               value={filters.dataHallId}
-              onChange={(e) => setFilters((f) => ({ ...f, dataHallId: e.target.value }))}
+              onChange={(e) => {
+                setFilters((f) => ({ ...f, dataHallId: e.target.value }))
+                setSelectedRowIds([])
+                setSelectedRackIds([])
+              }}
               className={filterSelectCls}
             >
               <option value="">All destinations</option>
@@ -176,6 +229,77 @@ export default function ReportsPage() {
             />
           </div>
         </div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">Report Scope</label>
+            <select
+              value={scope}
+              onChange={(e) => {
+                setScope(e.target.value as "" | "row" | "rack")
+                setSelectedRowIds([])
+                setSelectedRackIds([])
+              }}
+              className="rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 px-2 py-1.5 text-sm"
+            >
+              <option value="">Default (all views)</option>
+              <option value="row">By Row</option>
+              <option value="rack">By Rack</option>
+            </select>
+          </div>
+
+          {(scope === "row" || scope === "rack") && availableRows.length > 0 && (
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Filter Rows {selectedRowIds.length > 0 ? `(${selectedRowIds.length} selected)` : "(all)"}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {availableRows.map((row) => (
+                  <button
+                    key={row.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedRowIds((ids) => toggleId(ids, row.id))
+                      setSelectedRackIds([])
+                    }}
+                    className={`px-2 py-1 text-xs rounded-md border ${
+                      selectedRowIds.includes(row.id)
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    {row.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {scope === "rack" && availableRacks.length > 0 && (
+            <div>
+              <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
+                Filter Racks {selectedRackIds.length > 0 ? `(${selectedRackIds.length} selected)` : "(all)"}
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {availableRacks.map((rack) => (
+                  <button
+                    key={rack.id}
+                    type="button"
+                    onClick={() => setSelectedRackIds((ids) => toggleId(ids, rack.id))}
+                    className={`px-2 py-1 text-xs rounded-md border ${
+                      selectedRackIds.includes(rack.id)
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    {rack.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
         <button
           onClick={run}
           disabled={loading}
@@ -191,7 +315,75 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {Object.keys(byItem).length > 0 && (
+      {scope === "row" && Object.keys(byRow).length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100">By Row</h2>
+          </div>
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {Object.values(byRow)
+              .sort((a, b) => b.qty - a.qty)
+              .map((row) => (
+                <div key={row.name} className="px-6 py-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">{row.name}</span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100">{row.qty} total</span>
+                  </div>
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {Object.values(row.items)
+                        .sort((a, b) => b.qty - a.qty)
+                        .map((item) => (
+                          <tr key={item.sku}>
+                            <td className="py-1 text-gray-500 dark:text-gray-400 pr-4">{item.sku}</td>
+                            <td className="py-1 text-gray-700 dark:text-gray-300">{item.name}</td>
+                            <td className="py-1 text-right text-gray-900 dark:text-gray-100">{item.qty} {item.unit}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {scope === "rack" && Object.keys(byRack).length > 0 && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="font-semibold text-gray-900 dark:text-gray-100">By Rack</h2>
+          </div>
+          <div className="divide-y divide-gray-200 dark:divide-gray-700">
+            {Object.values(byRack)
+              .sort((a, b) => b.qty - a.qty)
+              .map((rack) => (
+                <div key={rack.name} className="px-6 py-3">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {rack.rowName ? `${rack.rowName} / ` : ""}{rack.name}
+                    </span>
+                    <span className="font-bold text-gray-900 dark:text-gray-100">{rack.qty} total</span>
+                  </div>
+                  <table className="w-full text-sm">
+                    <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+                      {Object.values(rack.items)
+                        .sort((a, b) => b.qty - a.qty)
+                        .map((item) => (
+                          <tr key={item.sku}>
+                            <td className="py-1 text-gray-500 dark:text-gray-400 pr-4">{item.sku}</td>
+                            <td className="py-1 text-gray-700 dark:text-gray-300">{item.name}</td>
+                            <td className="py-1 text-right text-gray-900 dark:text-gray-100">{item.qty} {item.unit}</td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
+
+      {scope === "" && Object.keys(byItem).length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="font-semibold text-gray-900 dark:text-gray-100">By Item</h2>
@@ -221,7 +413,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {Object.keys(byPerson).length > 0 && (
+      {scope === "" && Object.keys(byPerson).length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="font-semibold text-gray-900 dark:text-gray-100">By Person (Picker)</h2>
@@ -247,7 +439,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {Object.keys(byDestination).length > 0 && (
+      {scope === "" && Object.keys(byDestination).length > 0 && (
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
           <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
             <h2 className="font-semibold text-gray-900 dark:text-gray-100">By Destination</h2>

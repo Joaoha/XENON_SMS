@@ -22,12 +22,18 @@ export async function GET(req: Request) {
     const sourceWarehouseId = searchParams.get("sourceWarehouseId")
     const destinationWarehouseId = searchParams.get("destinationWarehouseId")
     const warehouseId = searchParams.get("warehouseId")
+    const rowIdsParam = searchParams.get("rowIds")
+    const rackIdsParam = searchParams.get("rackIds")
+    const rowIds = rowIdsParam ? rowIdsParam.split(",").filter(Boolean) : []
+    const rackIds = rackIdsParam ? rackIdsParam.split(",").filter(Boolean) : []
 
     const where: Record<string, unknown> = {}
     if (itemId) where.stockItemId = itemId
     if (type) where.type = type
     if (pickedBy) where.pickedBy = { contains: pickedBy, mode: "insensitive" }
     if (dataHallId) where.dataHallId = dataHallId
+    if (rowIds.length > 0) where.rowId = { in: rowIds }
+    if (rackIds.length > 0) where.rackId = { in: rackIds }
     if (sourceWarehouseId) where.sourceWarehouseId = sourceWarehouseId
     if (destinationWarehouseId) where.destinationWarehouseId = destinationWarehouseId
     if (warehouseId) {

@@ -2,6 +2,12 @@
 
 All notable changes to XENON Stock Management System are documented here.
 
+## [1.4.0] — 2026-05-19
+
+### New Features
+
+- **Reports by Rack or Row** — The Reports page now has a Report Scope selector: Default (existing views), By Row, or By Rack. Selecting By Row shows a row-level aggregation of stock items across all matching transactions. Selecting By Rack shows rack-level aggregation with row context. Both scopes support optional multi-select filters (rows and/or racks) that narrow results to specific locations within the selected Data Hall. When no scope is selected, the existing By Item, By Person, and By Destination views display as before. CSV export respects the active row/rack filters.
+
 ## [1.3.0] — 2026-05-15
 
 ### New Features
