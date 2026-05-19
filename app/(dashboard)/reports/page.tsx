@@ -297,7 +297,7 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {scope !== "" && availableRows.length > 0 && (
+          {(scope === "row" || scope === "rack") && availableRows.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Row {selectedRowIds.length > 0 ? `(${selectedRowIds.length} selected)` : "(all)"}
@@ -332,7 +332,7 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {scope !== "" && availableRacks.length > 0 && (
+          {scope === "rack" && availableRacks.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Rack {selectedRackIds.length > 0 ? `(${selectedRackIds.length} selected)` : "(all)"}
