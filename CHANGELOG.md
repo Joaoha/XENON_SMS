@@ -2,6 +2,18 @@
 
 All notable changes to XENON Stock Management System are documented here.
 
+## [1.5.1] — 2026-05-19
+
+### Fixes
+
+- **Reports scope filter visibility** — Data Hall, Row, and Rack filters now correctly show only when a scoped view (By Row, By Rack, or By Data Hall) is active; hidden in Default scope. Includes improved filter behaviour when switching between scopes.
+
+## [1.5.0] — 2026-05-19
+
+### Improvements
+
+- **Reports filter refactor** — Unified the Destination and Report Scope selectors into a single filter flow; added By Data Hall scope with searchable multi-select for halls, rows, and racks. Reports now support filtering across multiple Data Halls simultaneously.
+
 ## [1.4.0] — 2026-05-19
 
 ### New Features
