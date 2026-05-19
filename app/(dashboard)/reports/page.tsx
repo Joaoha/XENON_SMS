@@ -66,7 +66,7 @@ export default function ReportsPage() {
 
   const hallSource = selectedHallIds.length > 0
     ? dataHalls.filter((dh) => selectedHallIds.includes(dh.id))
-    : dataHalls
+    : scope !== "" ? dataHalls : []
   const availableRows: Row[] = hallSource.flatMap((dh) => dh.rows)
   const availableRacks: Rack[] = availableRows
     .filter((r) => selectedRowIds.length === 0 || selectedRowIds.includes(r.id))
@@ -244,8 +244,10 @@ export default function ReportsPage() {
               value={scope}
               onChange={(e) => {
                 setScope(e.target.value as "" | "row" | "rack" | "hall")
+                setSelectedHallIds([])
                 setSelectedRowIds([])
                 setSelectedRackIds([])
+                setHallSearch("")
                 setRowSearch("")
                 setRackSearch("")
               }}
@@ -258,7 +260,7 @@ export default function ReportsPage() {
             </select>
           </div>
 
-          {dataHalls.length > 0 && (
+          {scope !== "" && dataHalls.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Data Hall {selectedHallIds.length > 0 ? `(${selectedHallIds.length} selected)` : "(all)"}
@@ -295,7 +297,7 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {availableRows.length > 0 && (
+          {scope !== "" && availableRows.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Row {selectedRowIds.length > 0 ? `(${selectedRowIds.length} selected)` : "(all)"}
@@ -330,7 +332,7 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {availableRacks.length > 0 && (
+          {scope !== "" && availableRacks.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Rack {selectedRackIds.length > 0 ? `(${selectedRackIds.length} selected)` : "(all)"}
