@@ -318,7 +318,7 @@ export default function ReportsPage() {
             </select>
           </div>
 
-          {scope === "hall" && dataHalls.length > 0 && (
+          {(scope === "" || scope === "hall") && dataHalls.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Filter Data Halls {selectedHallIds.length > 0 ? `(${selectedHallIds.length} selected)` : "(all)"}
@@ -349,7 +349,7 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {(scope === "row" || scope === "rack") && availableRows.length > 0 && (
+          {(scope === "" || scope === "row" || scope === "rack") && availableRows.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Filter Rows {selectedRowIds.length > 0 ? `(${selectedRowIds.length} selected)` : "(all)"}
@@ -383,7 +383,7 @@ export default function ReportsPage() {
             </div>
           )}
 
-          {scope === "rack" && availableRacks.length > 0 && (
+          {(scope === "" || scope === "rack") && availableRacks.length > 0 && (
             <div>
               <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">
                 Filter Racks {selectedRackIds.length > 0 ? `(${selectedRackIds.length} selected)` : "(all)"}
