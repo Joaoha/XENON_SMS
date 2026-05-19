@@ -66,7 +66,7 @@ export default function ReportsPage() {
 
   const hallSource = selectedHallIds.length > 0
     ? dataHalls.filter((dh) => selectedHallIds.includes(dh.id))
-    : (scope === "row" || scope === "rack") ? dataHalls : []
+    : dataHalls
   const availableRows: Row[] = hallSource.flatMap((dh) => dh.rows)
   const availableRacks: Rack[] = availableRows
     .filter((r) => selectedRowIds.length === 0 || selectedRowIds.includes(r.id))
